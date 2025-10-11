@@ -1,4 +1,4 @@
-# Road Trip Narrator
+# Jabberjaw
 
 A location-aware mobile application that generates podcast-style narration about points of interest during road trips.
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Road Trip Narrator system consists of three main components: an Android mobile application, a backend content generation service, and a backend orchestration service. The mobile app handles location tracking, audio playback, and user interface, while the backend services manage point-of-interest identification, content generation using LLMs, and system coordination. The architecture prioritizes modularity, scalability, offline capability, and content persistence.
+The Jabberjaw system consists of three main components: an Android mobile application, a backend content generation service, and a backend orchestration service. The mobile app handles location tracking, audio playback, and user interface, while the backend services manage point-of-interest identification, content generation using LLMs, and system coordination. The architecture prioritizes modularity, scalability, offline capability, and content persistence.
 
 **Technology Stack:**
 
@@ -111,7 +111,7 @@ interface AppState {
   isActive: boolean;
   currentLocation: LocationData | null;
   currentSegment: AudioSegment | null;
-  connectionStatus: 'online' | 'offline';
+  connectionStatus: "online" | "offline";
 }
 ```
 
@@ -297,26 +297,26 @@ interface StructuredPOI {
 }
 
 enum POIType {
-  TOWN = 'town',
-  CITY = 'city',
-  LANDMARK = 'landmark',
-  PARK = 'park',
-  MUSEUM = 'museum',
-  ARBORETUM = 'arboretum',
-  HISTORICAL_SITE = 'historical_site',
-  NATURAL_FEATURE = 'natural_feature',
-  INSTITUTION = 'institution',
-  WATERWAY = 'waterway',
-  BRIDGE = 'bridge',
-  MOUNTAIN = 'mountain',
-  VALLEY = 'valley',
-  AIRPORT = 'airport',
-  TRAIN_STATION = 'train_station',
-  CULTURAL_CENTER = 'cultural_center',
-  THEATER = 'theater',
-  RELIGIOUS_SITE = 'religious_site',
-  MILITARY_SITE = 'military_site',
-  AGRICULTURAL_SITE = 'agricultural_site',
+  TOWN = "town",
+  CITY = "city",
+  LANDMARK = "landmark",
+  PARK = "park",
+  MUSEUM = "museum",
+  ARBORETUM = "arboretum",
+  HISTORICAL_SITE = "historical_site",
+  NATURAL_FEATURE = "natural_feature",
+  INSTITUTION = "institution",
+  WATERWAY = "waterway",
+  BRIDGE = "bridge",
+  MOUNTAIN = "mountain",
+  VALLEY = "valley",
+  AIRPORT = "airport",
+  TRAIN_STATION = "train_station",
+  CULTURAL_CENTER = "cultural_center",
+  THEATER = "theater",
+  RELIGIOUS_SITE = "religious_site",
+  MILITARY_SITE = "military_site",
+  AGRICULTURAL_SITE = "agricultural_site",
 }
 ```
 
@@ -505,20 +505,20 @@ deno task start
 **Example Test Structure:**
 
 ```typescript
-import { assertEquals } from '@std/assert';
-import { describe, it, beforeEach } from '@std/testing/bdd';
-import { AppService } from './app.service.ts';
+import { assertEquals } from "@std/assert";
+import { describe, it, beforeEach } from "@std/testing/bdd";
+import { AppService } from "./app.service.ts";
 
-describe('AppService', () => {
+describe("AppService", () => {
   let service: AppService;
 
   beforeEach(() => {
     service = new AppService();
   });
 
-  it('should generate health status', () => {
+  it("should generate health status", () => {
     const health = service.getHealth();
-    assertEquals(health.runtime, 'Deno');
+    assertEquals(health.runtime, "Deno");
   });
 });
 ```
@@ -533,11 +533,11 @@ describe('AppService', () => {
 **Example E2E Test:**
 
 ```typescript
-import { assertEquals } from '@std/assert';
-import { DanetApplication } from '@danet/core';
-import { AppModule } from '../src/app.module.ts';
+import { assertEquals } from "@std/assert";
+import { DanetApplication } from "@danet/core";
+import { AppModule } from "../src/app.module.ts";
 
-describe('API Integration', () => {
+describe("API Integration", () => {
   let app: DanetApplication;
 
   beforeAll(async () => {
@@ -546,8 +546,8 @@ describe('API Integration', () => {
     await app.listen(3001);
   });
 
-  it('should return health status', async () => {
-    const response = await fetch('http://localhost:3001/health');
+  it("should return health status", async () => {
+    const response = await fetch("http://localhost:3001/health");
     const json = await response.json();
     assertEquals(response.status, 200);
   });

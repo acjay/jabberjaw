@@ -1,6 +1,6 @@
-import { DanetApplication } from '@danet/core';
-import { load } from '@std/dotenv';
-import { AppModule } from './app.module.ts';
+import { DanetApplication } from "@danet/core";
+import { load } from "@std/dotenv";
+import { AppModule } from "./app.module.ts";
 
 // Load environment variables
 await load({ export: true });
@@ -11,15 +11,15 @@ async function bootstrap() {
 
   // Configure CORS for mobile app communication
   app.enableCors({
-    origin: '*', // Allow all origins for development
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    origin: "*", // Allow all origins for development
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization", "Accept"],
     credentials: true,
   });
 
-  const port = Number(Deno.env.get('PORT')) || 3000;
+  const port = Number(Deno.env.get("PORT")) || 3000;
 
-  console.log(`Road Trip Narrator Backend starting on port ${port}`);
+  console.log(`Jabberjaw Backend starting on port ${port}`);
   await app.listen(port);
 }
 

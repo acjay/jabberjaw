@@ -3,7 +3,7 @@
 ## Monorepo Layout
 
 ```
-road-trip-narrator/
+jabberjaw/
 ├── backend/           # Deno backend service
 ├── android/           # Android mobile app (to be implemented)
 ├── ios/               # iOS mobile app (planned)

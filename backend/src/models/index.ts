@@ -1,6 +1,6 @@
 /**
- * Core data models and interfaces for the Road Trip Narrator backend
- * 
+ * Core data models and interfaces for the Jabberjaw backend
+ *
  * This module exports all the essential data structures used throughout
  * the application for location tracking, POI management, and content generation.
  */
@@ -9,8 +9,8 @@
 export {
   type LocationData,
   validateLocationData,
-  isLocationData
-} from './location.model.ts';
+  isLocationData,
+} from "./location.model.ts";
 
 // POI models
 export {
@@ -19,12 +19,12 @@ export {
   POICategory,
   validatePointOfInterest,
   isPointOfInterest,
-  getPOICategoriesByGroup
-} from './poi.model.ts';
+  getPOICategoriesByGroup,
+} from "./poi.model.ts";
 
 // Content generation models (to be added in task 2.2)
 export type {
   ContentRequest,
   GeneratedContent,
-  StoredContent
-} from './content.model.ts';
+  StoredContent,
+} from "./content.model.ts";

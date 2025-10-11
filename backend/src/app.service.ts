@@ -1,19 +1,19 @@
-import { Injectable } from '@danet/core';
+import { Injectable } from "@danet/core";
 
 @Injectable()
 export class AppService {
   getHello(): string {
-    return 'Road Trip Narrator Backend API is running with Deno and Danet!';
+    return "Jabberjaw Backend API is running with Deno and Danet!";
   }
 
   getHealth() {
     return {
-      status: 'healthy',
+      status: "healthy",
       timestamp: new Date().toISOString(),
-      service: 'road-trip-narrator-backend',
-      version: '1.0.0',
-      runtime: 'Deno',
-      environment: Deno.env.get('NODE_ENV') || 'development',
+      service: "road-trip-narrator-backend",
+      version: "1.0.0",
+      runtime: "Deno",
+      environment: Deno.env.get("NODE_ENV") || "development",
     };
   }
 }

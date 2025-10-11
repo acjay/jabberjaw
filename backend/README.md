@@ -1,4 +1,4 @@
-# Road Trip Narrator Backend
+# Jabberjaw Backend
 
 A backend service for generating engaging travel content using AI.
 

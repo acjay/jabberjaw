@@ -1,6 +1,6 @@
-# Road Trip Narrator Product Overview
+# Jabberjaw Product Overview
 
-Road Trip Narrator is a location-aware mobile application that generates podcast-style narration about points of interest during road trips. The system uses AI to create engaging travel content based on geographic locations and POI data.
+Jabberjaw is a location-aware mobile application that generates podcast-style narration about points of interest during road trips. The system uses AI to create engaging travel content based on geographic locations and POI data.
 
 ## Core Features
 
