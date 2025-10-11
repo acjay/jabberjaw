@@ -7,7 +7,8 @@ A location-aware mobile application that generates podcast-style narration about
 This is a monorepo containing:
 
 - `backend/` - Danet (Deno) backend service for content generation and orchestration
-- `mobile/` - Android mobile application (to be implemented)
+- `android/` - Android mobile application (to be implemented)
+- `ios/` - iOS mobile application (planned)
 
 ## Prerequisites
 
@@ -24,23 +25,15 @@ No package installation needed! Deno handles dependencies automatically.
 
 ```bash
 # Start backend development server
-npm run backend:dev
-# or directly with Deno
 cd backend && deno task dev
 
 # Run tests
-npm run backend:test
-# or directly with Deno
 cd backend && deno task test
 
 # Lint code
-npm run backend:lint
-# or directly with Deno
 cd backend && deno task lint
 
 # Format code
-npm run backend:fmt
-# or directly with Deno
 cd backend && deno task fmt
 ```
 
@@ -71,6 +64,7 @@ deno task fmt:check
 ## API Endpoints
 
 The backend provides the following endpoints:
+
 - `GET /` - Health check endpoint
 - `GET /health` - Detailed health status
 
@@ -90,7 +84,7 @@ The system follows a modular architecture with:
 
 - **Backend**: Deno + Danet (Deno's answer to NestJS)
 - **Dependencies**: JSR (JavaScript Registry) for all imports
-- **Mobile**: Android (to be implemented)
+- **Mobile**: Android (to be implemented), iOS (planned)
 - **Testing**: Deno's built-in testing framework with BDD support
 - **Formatting**: Deno's built-in formatter
 - **Linting**: Deno's built-in linter

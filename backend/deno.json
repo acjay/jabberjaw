@@ -3,8 +3,7 @@
     "lib": ["deno.window"],
     "strict": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "useDefineForClassFields": false
+    "emitDecoratorMetadata": true
   },
   "lint": {
     "rules": {

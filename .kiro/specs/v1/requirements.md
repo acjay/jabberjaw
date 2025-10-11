@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The Road Trip Narrator is a location-aware mobile application that generates and delivers podcast-style narration about points of interest during road trips. The app uses GPS location data to identify nearby landmarks, towns, and other notable features, then leverages cloud-hosted LLMs to create engaging 3-minute audio segments that are delivered via text-to-speech. The system is designed to provide continuous, automated storytelling that transforms mundane highway driving into an educational and entertaining experience.
+Jabberjaw is a location-aware mobile application that generates and delivers podcast-style narration about points of interest during road trips. The app uses GPS location data to identify nearby landmarks, towns, and other notable features, then leverages cloud-hosted LLMs to create engaging 3-minute audio segments that are delivered via text-to-speech. The system is designed to provide continuous, automated storytelling that transforms mundane highway driving into an educational and entertaining experience.
 
 ## Requirements
 
@@ -14,7 +14,7 @@ The Road Trip Narrator is a location-aware mobile application that generates and
 
 1. WHEN the user starts the app THEN the system SHALL request location permissions and begin GPS tracking
 2. WHEN the user's location changes significantly THEN the system SHALL identify points of interest within a configurable radius, which could include types like town, county, neighborhood, major road, landmark, institution, waterway, named bridge, mountain, park, and so forth.
-4. WHEN categorized points of interest are available THEN the system SHALL generate narrative content using a cloud-hosted LLM
+3. WHEN categorized points of interest are available THEN the system SHALL generate narrative content using a cloud-hosted LLM
 
 ### Requirement 2
 
@@ -86,3 +86,16 @@ The Road Trip Narrator is a location-aware mobile application that generates and
 2. WHEN connectivity is restored THEN the system SHALL resume generating new content based on current location
 3. WHEN in offline mode THEN the system SHALL provide user feedback about connectivity status
 4. WHEN location data is available offline THEN the system SHALL cache it for use when connectivity returns
+
+### Requirement 8
+
+**User Story:** As a road trip enthusiast, I want the app to recognize and prioritize historically significant roads and routes, so that I can learn about important transportation corridors and their cultural impact beyond just standard highway information.
+
+#### Acceptance Criteria
+
+1. WHEN identifying roads and highways THEN the system SHALL check for historical significance beyond standard highway classification
+2. WHEN a road has substantial historical documentation THEN the system SHALL elevate its importance in POI discovery results
+3. WHEN determining historical significance THEN the system SHALL use Wikipedia article length as a primary heuristic, with articles over 1000 words indicating significance
+4. WHEN processing historically significant roads THEN the system SHALL include historical context and cultural importance in generated content
+5. WHEN generating content about significant roads THEN the system SHALL prioritize historical narratives over standard geographic information
+6. WHEN caching road significance data THEN the system SHALL avoid repeated API calls for previously assessed roads

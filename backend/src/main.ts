@@ -9,8 +9,16 @@ async function bootstrap() {
   const app = new DanetApplication();
   await app.init(AppModule);
 
+  // Configure CORS for mobile app communication
+  app.enableCors({
+    origin: '*', // Allow all origins for development
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    credentials: true,
+  });
+
   const port = Number(Deno.env.get('PORT')) || 3000;
-  
+
   console.log(`Road Trip Narrator Backend starting on port ${port}`);
   await app.listen(port);
 }
