@@ -1,11 +1,12 @@
-import { Injectable } from '@danet/core';
-import { POIIdentificationService } from './poi-identification.service.ts';
-import { GoogleRoadsService } from './google-roads.service.ts';
-import { LocationData } from '../../models/location.model.ts';
+import { Injectable } from "@danet/core";
+import { POIIdentificationService } from "./poi-identification.service.ts";
+import { GoogleRoadsService } from "./google-roads.service.ts";
+import { LocationData } from "../../models/location.model.ts";
 import {
   HighwayDetectionComparison,
   HighwayDetectionResult,
-} from '../highway-detection.controller.ts';
+} from "../highway-detection.controller.ts";
+import { OverpassClient } from "../../shared/index.ts";
 
 /**
  * Service for comparing different highway detection methods
@@ -16,20 +17,27 @@ export class HighwayDetectionComparisonService {
   constructor(
     private readonly poiService: POIIdentificationService,
     private readonly googleRoadsService: GoogleRoadsService,
+    private readonly overpassClient: OverpassClient
   ) {}
 
   /**
    * Compare all four highway detection methods for a given location
    */
-  async compareDetectionMethods(location: LocationData): Promise<HighwayDetectionComparison> {
+  async compareDetectionMethods(
+    location: LocationData
+  ): Promise<HighwayDetectionComparison> {
     // Run all four detection methods in parallel for performance comparison
-    const [currentResult, pointToLineResult, googleRoadsResult, enhancedOverpassResult] =
-      await Promise.allSettled([
-        this.runCurrentMethod(location),
-        this.runPointToLineMethod(location),
-        this.runGoogleRoadsMethod(location),
-        this.runEnhancedOverpassMethod(location),
-      ]);
+    const [
+      currentResult,
+      pointToLineResult,
+      googleRoadsResult,
+      enhancedOverpassResult,
+    ] = await Promise.allSettled([
+      this.runCurrentMethod(location),
+      this.runPointToLineMethod(location),
+      this.runGoogleRoadsMethod(location),
+      this.runEnhancedOverpassMethod(location),
+    ]);
 
     return {
       location: {
@@ -37,10 +45,13 @@ export class HighwayDetectionComparisonService {
         longitude: location.longitude,
       },
       methods: {
-        current: this.processMethodResult(currentResult, 'current'),
-        pointToLine: this.processMethodResult(pointToLineResult, 'pointToLine'),
-        googleRoads: this.processMethodResult(googleRoadsResult, 'googleRoads'),
-        enhancedOverpass: this.processMethodResult(enhancedOverpassResult, 'enhancedOverpass'),
+        current: this.processMethodResult(currentResult, "current"),
+        pointToLine: this.processMethodResult(pointToLineResult, "pointToLine"),
+        googleRoads: this.processMethodResult(googleRoadsResult, "googleRoads"),
+        enhancedOverpass: this.processMethodResult(
+          enhancedOverpassResult,
+          "enhancedOverpass"
+        ),
       },
       timestamp: new Date(),
     };
@@ -52,7 +63,10 @@ export class HighwayDetectionComparisonService {
   private async runCurrentMethod(location: LocationData): Promise<{
     highways: Array<{
       name: string;
+      ref?: string;
+      displayName: string;
       type: string;
+      roadType: string;
       distance: number;
       confidence: number;
       metadata?: any;
@@ -69,17 +83,17 @@ export class HighwayDetectionComparisonService {
       });
 
       const highways = pois
-        .filter(poi => poi.category === 'major_road')
-        .map(poi => ({
+        .filter((poi) => poi.category === "major_road")
+        .map((poi) => ({
           name: poi.name,
           ref: undefined, // POI service doesn't provide ref numbers
           displayName: poi.name,
-          type: 'highway',
+          type: "highway",
           roadType: this.classifyRoadTypeFromName(poi.name),
           distance: this.calculatePointToPointDistance(location, poi.location),
           confidence: (poi.metadata?.significanceScore || 50) / 100,
           metadata: {
-            method: 'current',
+            method: "current",
             centerPoint: poi.location,
             originalMetadata: poi.metadata,
           },
@@ -108,7 +122,10 @@ export class HighwayDetectionComparisonService {
   private async runPointToLineMethod(location: LocationData): Promise<{
     highways: Array<{
       name: string;
+      ref?: string;
+      displayName: string;
       type: string;
+      roadType: string;
       distance: number;
       confidence: number;
       metadata?: any;
@@ -122,10 +139,10 @@ export class HighwayDetectionComparisonService {
       const highways = await this.queryHighwaysWithGeometry(location, 5000);
 
       const processedHighways = highways
-        .map(highway => {
+        .map((highway) => {
           const geometricDistance = this.calculatePointToLineDistance(
             [location.latitude, location.longitude],
-            highway.geometry,
+            highway.geometry
           );
 
           return {
@@ -133,14 +150,18 @@ export class HighwayDetectionComparisonService {
             ref: highway.rawRef,
             displayName: highway.name,
             type: highway.type,
-            roadType: this.classifyRoadType('', highway.rawRef, highway.rawName || highway.name),
+            roadType: this.classifyRoadType(
+              "",
+              highway.rawRef,
+              highway.rawName || highway.name
+            ),
             distance: geometricDistance,
             confidence: this.calculateGeometricConfidence(
               geometricDistance,
-              highway.geometry.length,
+              highway.geometry.length
             ),
             metadata: {
-              method: 'pointToLine',
+              method: "pointToLine",
               geometryPoints: highway.geometry.length,
               centerPoint: highway.centerPoint,
               geometricDistance,
@@ -173,7 +194,10 @@ export class HighwayDetectionComparisonService {
   private async runGoogleRoadsMethod(location: LocationData): Promise<{
     highways: Array<{
       name: string;
+      ref?: string;
+      displayName: string;
       type: string;
+      roadType: string;
       distance: number;
       confidence: number;
       metadata?: any;
@@ -184,16 +208,21 @@ export class HighwayDetectionComparisonService {
 
     try {
       if (!this.googleRoadsService.isConfigured()) {
-        throw new Error('Google Roads API not configured');
+        throw new Error("Google Roads API not configured");
       }
 
       // Try snap to roads first
       const snapResult = await this.googleRoadsService.snapToRoads(location);
-      const nearestRoads = await this.googleRoadsService.findNearestRoads(location);
+      const nearestRoads = await this.googleRoadsService.findNearestRoads(
+        location
+      );
 
       const highways: Array<{
         name: string;
+        ref?: string;
+        displayName: string;
         type: string;
+        roadType: string;
         distance: number;
         confidence: number;
         metadata?: any;
@@ -201,20 +230,20 @@ export class HighwayDetectionComparisonService {
 
       // Add snap result if available
       if (snapResult) {
-        const roadName = snapResult.roadName || 'Unknown Road';
+        const roadName = snapResult.roadName || "Unknown Road";
         const extractedRef = this.extractHighwayRef(roadName);
 
         highways.push({
           name: roadName,
           ref: extractedRef,
           displayName: roadName,
-          type: 'road',
+          type: "road",
           roadType: this.classifyRoadTypeFromName(roadName),
           distance: snapResult.distanceFromOriginal,
           confidence: snapResult.confidence,
           metadata: {
-            method: 'googleRoads',
-            source: 'snapToRoads',
+            method: "googleRoads",
+            source: "snapToRoads",
             placeId: snapResult.placeId,
             snappedLocation: snapResult.snappedLocation,
             extractedRef,
@@ -224,21 +253,21 @@ export class HighwayDetectionComparisonService {
 
       // Add nearest roads
       for (const road of nearestRoads.slice(0, 4)) {
-        if (!highways.some(h => h.metadata?.placeId === road.placeId)) {
-          const roadName = road.roadName || 'Unknown Road';
+        if (!highways.some((h) => h.metadata?.placeId === road.placeId)) {
+          const roadName = road.roadName || "Unknown Road";
           const extractedRef = this.extractHighwayRef(roadName);
 
           highways.push({
             name: roadName,
             ref: extractedRef,
             displayName: roadName,
-            type: 'road',
+            type: "road",
             roadType: this.classifyRoadTypeFromName(roadName),
             distance: road.distanceFromOriginal,
             confidence: road.confidence,
             metadata: {
-              method: 'googleRoads',
-              source: 'nearestRoads',
+              method: "googleRoads",
+              source: "nearestRoads",
               placeId: road.placeId,
               snappedLocation: road.snappedLocation,
               extractedRef,
@@ -268,7 +297,10 @@ export class HighwayDetectionComparisonService {
   private async runEnhancedOverpassMethod(location: LocationData): Promise<{
     highways: Array<{
       name: string;
+      ref?: string;
+      displayName: string;
       type: string;
+      roadType: string;
       distance: number;
       confidence: number;
       metadata?: any;
@@ -282,21 +314,27 @@ export class HighwayDetectionComparisonService {
       const radii = [100, 500, 2000];
       let highways: Array<{
         name: string;
+        ref?: string;
+        displayName: string;
         type: string;
+        roadType: string;
         distance: number;
         confidence: number;
         metadata?: any;
       }> = [];
 
       for (const radius of radii) {
-        const radiusHighways = await this.queryHighwaysWithGeometry(location, radius);
+        const radiusHighways = await this.queryHighwaysWithGeometry(
+          location,
+          radius
+        );
 
         if (radiusHighways.length > 0) {
           highways = radiusHighways
-            .map(highway => {
+            .map((highway) => {
               const geometricDistance = this.calculatePointToLineDistance(
                 [location.latitude, location.longitude],
-                highway.geometry,
+                highway.geometry
               );
 
               return {
@@ -305,18 +343,18 @@ export class HighwayDetectionComparisonService {
                 displayName: highway.name,
                 type: highway.type,
                 roadType: this.classifyRoadType(
-                  '',
+                  "",
                   highway.rawRef,
-                  highway.rawName || highway.name,
+                  highway.rawName || highway.name
                 ),
                 distance: geometricDistance,
                 confidence: this.calculateEnhancedConfidence(
                   geometricDistance,
                   highway.type,
-                  highway.geometry.length,
+                  highway.geometry.length
                 ),
                 metadata: {
-                  method: 'enhancedOverpass',
+                  method: "enhancedOverpass",
                   searchRadius: radius,
                   geometryPoints: highway.geometry.length,
                   centerPoint: highway.centerPoint,
@@ -353,7 +391,7 @@ export class HighwayDetectionComparisonService {
    */
   private async queryHighwaysWithGeometry(
     location: LocationData,
-    radiusMeters: number,
+    radiusMeters: number
   ): Promise<
     Array<{
       name: string;
@@ -375,24 +413,14 @@ export class HighwayDetectionComparisonService {
       out geom;
     `;
 
-    const response = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: `data=${encodeURIComponent(query)}`,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Overpass API error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await this.overpassClient.query(query);
     const results: Array<{
       name: string;
       type: string;
       geometry: Array<{ lat: number; lon: number }>;
       centerPoint: { lat: number; lng: number };
+      rawName?: string;
+      rawRef?: string;
     }> = [];
 
     for (const element of data.elements || []) {
@@ -401,10 +429,14 @@ export class HighwayDetectionComparisonService {
       const ref = tags.ref;
 
       // Need either name or ref to proceed
-      if ((!name && !ref) || !element.geometry || element.geometry.length < 2) continue;
+      if ((!name && !ref) || !element.geometry || element.geometry.length < 2)
+        continue;
 
       const geometry = element.geometry.filter(
-        (point: any) => point && typeof point.lat === 'number' && typeof point.lon === 'number',
+        (point: any) =>
+          point &&
+          typeof point.lat === "number" &&
+          typeof point.lon === "number"
       );
 
       if (geometry.length < 2) continue;
@@ -431,13 +463,13 @@ export class HighwayDetectionComparisonService {
    */
   private calculatePointToPointDistance(
     location: LocationData,
-    poiLocation: { latitude: number; longitude: number },
+    poiLocation: { latitude: number; longitude: number }
   ): number {
     return this.calculateDistance(
       location.latitude,
       location.longitude,
       poiLocation.latitude,
-      poiLocation.longitude,
+      poiLocation.longitude
     );
   }
 
@@ -446,7 +478,7 @@ export class HighwayDetectionComparisonService {
    */
   private calculatePointToLineDistance(
     point: [number, number],
-    geometry: Array<{ lat: number; lon: number }>,
+    geometry: Array<{ lat: number; lon: number }>
   ): number {
     if (geometry.length < 2) return Infinity;
 
@@ -454,9 +486,16 @@ export class HighwayDetectionComparisonService {
 
     for (let i = 0; i < geometry.length - 1; i++) {
       const segmentStart: [number, number] = [geometry[i].lat, geometry[i].lon];
-      const segmentEnd: [number, number] = [geometry[i + 1].lat, geometry[i + 1].lon];
+      const segmentEnd: [number, number] = [
+        geometry[i + 1].lat,
+        geometry[i + 1].lon,
+      ];
 
-      const distance = this.pointToLineSegmentDistance(point, segmentStart, segmentEnd);
+      const distance = this.pointToLineSegmentDistance(
+        point,
+        segmentStart,
+        segmentEnd
+      );
       minDistance = Math.min(minDistance, distance);
     }
 
@@ -469,7 +508,7 @@ export class HighwayDetectionComparisonService {
   private pointToLineSegmentDistance(
     point: [number, number],
     segmentStart: [number, number],
-    segmentEnd: [number, number],
+    segmentEnd: [number, number]
   ): number {
     const [px, py] = point;
     const [ax, ay] = segmentStart;
@@ -504,12 +543,15 @@ export class HighwayDetectionComparisonService {
   /**
    * Calculate geometry center point
    */
-  private calculateGeometryCenter(geometry: Array<{ lat: number; lon: number }>): {
+  private calculateGeometryCenter(
+    geometry: Array<{ lat: number; lon: number }>
+  ): {
     lat: number;
     lng: number;
   } {
     if (geometry.length === 0) return { lat: 0, lng: 0 };
-    if (geometry.length === 1) return { lat: geometry[0].lat, lng: geometry[0].lon };
+    if (geometry.length === 1)
+      return { lat: geometry[0].lat, lng: geometry[0].lon };
 
     const sumLat = geometry.reduce((sum, point) => sum + point.lat, 0);
     const sumLng = geometry.reduce((sum, point) => sum + point.lon, 0);
@@ -525,13 +567,13 @@ export class HighwayDetectionComparisonService {
    */
   private mapHighwayType(highway: string): string {
     const typeMap: Record<string, string> = {
-      motorway: 'interstate',
-      trunk: 'us_highway',
-      primary: 'state_highway',
-      secondary: 'state_highway',
+      motorway: "interstate",
+      trunk: "us_highway",
+      primary: "state_highway",
+      secondary: "state_highway",
     };
 
-    return typeMap[highway] || 'highway';
+    return typeMap[highway] || "highway";
   }
 
   /**
@@ -541,147 +583,155 @@ export class HighwayDetectionComparisonService {
     const lowerName = name.toLowerCase();
 
     // Interstate highways
-    if (lowerName.includes('interstate') || lowerName.match(/\bi-?\d+\b/)) {
-      return 'interstate';
+    if (lowerName.includes("interstate") || lowerName.match(/\bi-?\d+\b/)) {
+      return "interstate";
     }
 
     // US highways
     if (
-      lowerName.includes('us highway') ||
-      lowerName.includes('us route') ||
+      lowerName.includes("us highway") ||
+      lowerName.includes("us route") ||
       lowerName.match(/\bus-?\d+\b/)
     ) {
-      return 'us_highway';
+      return "us_highway";
     }
 
     // State highways
     if (
-      lowerName.includes('state route') ||
-      lowerName.includes('state highway') ||
+      lowerName.includes("state route") ||
+      lowerName.includes("state highway") ||
       lowerName.match(/\b(sr|ca|ny|nj|il|tx|fl)-?\d+\b/)
     ) {
-      return 'state_highway';
+      return "state_highway";
     }
 
     // Major highways (expressways, parkways, etc.)
     if (
-      lowerName.includes('parkway') ||
-      lowerName.includes('expressway') ||
-      lowerName.includes('freeway') ||
-      lowerName.includes('turnpike') ||
-      lowerName.includes('beltway') ||
-      lowerName.includes('bypass')
+      lowerName.includes("parkway") ||
+      lowerName.includes("expressway") ||
+      lowerName.includes("freeway") ||
+      lowerName.includes("turnpike") ||
+      lowerName.includes("beltway") ||
+      lowerName.includes("bypass")
     ) {
-      return 'major_highway';
+      return "major_highway";
     }
 
     // County roads
     if (
-      lowerName.includes('county') ||
-      lowerName.includes('farm to market') ||
+      lowerName.includes("county") ||
+      lowerName.includes("farm to market") ||
       lowerName.match(/\b(cr|co|county)-?\d+\b/)
     ) {
-      return 'county_road';
+      return "county_road";
     }
 
     // Default to arterial for named roads
-    return 'arterial';
+    return "arterial";
   }
 
   /**
    * Classify road type based on highway tags and reference numbers
    */
-  private classifyRoadType(highway: string, ref?: string, name?: string): string {
+  private classifyRoadType(
+    highway: string,
+    ref?: string,
+    name?: string
+  ): string {
     // Interstate highways
     if (
-      highway === 'motorway' ||
+      highway === "motorway" ||
       ref?.match(/^I-?\d+$/i) ||
-      name?.toLowerCase().includes('interstate')
+      name?.toLowerCase().includes("interstate")
     ) {
-      return 'interstate';
+      return "interstate";
     }
 
     // US highways
     if (
-      highway === 'trunk' ||
+      highway === "trunk" ||
       ref?.match(/^US-?\d+$/i) ||
-      name?.toLowerCase().includes('us highway')
+      name?.toLowerCase().includes("us highway")
     ) {
-      return 'us_highway';
+      return "us_highway";
     }
 
     // State highways
     if (
-      highway === 'primary' ||
+      highway === "primary" ||
       ref?.match(/^(SR|CA|NY|NJ|IL|TX|FL)-?\d+$/i) ||
-      name?.toLowerCase().includes('state route') ||
-      name?.toLowerCase().includes('state highway')
+      name?.toLowerCase().includes("state route") ||
+      name?.toLowerCase().includes("state highway")
     ) {
-      return 'state_highway';
+      return "state_highway";
     }
 
     // County roads
     if (
-      highway === 'secondary' ||
+      highway === "secondary" ||
       ref?.match(/^(CR|CO|COUNTY)-?\d+$/i) ||
-      name?.toLowerCase().includes('county') ||
-      name?.toLowerCase().includes('farm to market')
+      name?.toLowerCase().includes("county") ||
+      name?.toLowerCase().includes("farm to market")
     ) {
-      return 'county_road';
+      return "county_road";
     }
 
     // Arterial roads (major city streets)
-    if (highway === 'tertiary' || highway === 'unclassified') {
-      return 'arterial';
+    if (highway === "tertiary" || highway === "unclassified") {
+      return "arterial";
     }
 
     // Local roads
-    if (highway === 'residential' || highway === 'service') {
-      return 'local_road';
+    if (highway === "residential" || highway === "service") {
+      return "local_road";
     }
 
     // Special cases
     if (
-      name?.toLowerCase().includes('parkway') ||
-      name?.toLowerCase().includes('expressway') ||
-      name?.toLowerCase().includes('freeway') ||
-      name?.toLowerCase().includes('turnpike')
+      name?.toLowerCase().includes("parkway") ||
+      name?.toLowerCase().includes("expressway") ||
+      name?.toLowerCase().includes("freeway") ||
+      name?.toLowerCase().includes("turnpike")
     ) {
-      return 'major_highway';
+      return "major_highway";
     }
 
     // Default classification based on OSM highway tag
     switch (highway) {
-      case 'motorway':
-      case 'motorway_link':
-        return 'interstate';
-      case 'trunk':
-      case 'trunk_link':
-        return 'major_highway';
-      case 'primary':
-      case 'primary_link':
-        return 'state_highway';
-      case 'secondary':
-      case 'secondary_link':
-        return 'county_road';
-      case 'tertiary':
-      case 'tertiary_link':
-        return 'arterial';
-      case 'unclassified':
-        return 'arterial';
-      case 'residential':
-        return 'local_road';
-      case 'service':
-        return 'service_road';
+      case "motorway":
+      case "motorway_link":
+        return "interstate";
+      case "trunk":
+      case "trunk_link":
+        return "major_highway";
+      case "primary":
+      case "primary_link":
+        return "state_highway";
+      case "secondary":
+      case "secondary_link":
+        return "county_road";
+      case "tertiary":
+      case "tertiary_link":
+        return "arterial";
+      case "unclassified":
+        return "arterial";
+      case "residential":
+        return "local_road";
+      case "service":
+        return "service_road";
       default:
-        return 'unknown';
+        return "unknown";
     }
   }
 
   /**
    * Create display name combining highway name and reference number
    */
-  private createDisplayName(name?: string, ref?: string, type?: string): string {
+  private createDisplayName(
+    name?: string,
+    ref?: string,
+    type?: string
+  ): string {
     // If we have both name and ref, combine them intelligently
     if (name && ref) {
       const formattedRef = this.formatHighwayRef(ref);
@@ -708,7 +758,7 @@ export class HighwayDetectionComparisonService {
       return name;
     }
 
-    return 'Unknown Highway';
+    return "Unknown Highway";
   }
 
   /**
@@ -716,17 +766,17 @@ export class HighwayDetectionComparisonService {
    */
   private formatHighwayRef(ref: string): string {
     if (ref.match(/^I-?\d+$/i)) {
-      return `Interstate ${ref.replace(/^I-?/i, '')}`;
+      return `Interstate ${ref.replace(/^I-?/i, "")}`;
     }
     if (ref.match(/^US-?\d+$/i)) {
-      return `US Highway ${ref.replace(/^US-?/i, '')}`;
+      return `US Highway ${ref.replace(/^US-?/i, "")}`;
     }
     if (ref.match(/^SR-?\d+$/i) || ref.match(/^CA-?\d+$/i)) {
-      return `State Route ${ref.replace(/^(SR|CA)-?/i, '')}`;
+      return `State Route ${ref.replace(/^(SR|CA)-?/i, "")}`;
     }
     if (ref.match(/^[A-Z]{2}-?\d+$/i)) {
       const state = ref.substring(0, 2).toUpperCase();
-      const number = ref.replace(/^[A-Z]{2}-?/i, '');
+      const number = ref.replace(/^[A-Z]{2}-?/i, "");
       return `${state} ${number}`;
     }
     if (ref.match(/^\d+$/)) {
@@ -745,13 +795,15 @@ export class HighwayDetectionComparisonService {
     const name = roadName.toLowerCase();
 
     // Interstate patterns
-    const interstateMatch = name.match(/interstate\s+(\d+)/i) || name.match(/i-?(\d+)/i);
+    const interstateMatch =
+      name.match(/interstate\s+(\d+)/i) || name.match(/i-?(\d+)/i);
     if (interstateMatch) {
       return `I-${interstateMatch[1]}`;
     }
 
     // US Highway patterns
-    const usMatch = name.match(/us\s+highway\s+(\d+)/i) || name.match(/us-?(\d+)/i);
+    const usMatch =
+      name.match(/us\s+highway\s+(\d+)/i) || name.match(/us-?(\d+)/i);
     if (usMatch) {
       return `US-${usMatch[1]}`;
     }
@@ -763,12 +815,16 @@ export class HighwayDetectionComparisonService {
       name.match(/(illinois|il)\s+(\d+)/i) ||
       name.match(/([a-z]{2})\s+(\d+)/i);
     if (stateMatch) {
-      const state = stateMatch[1].replace(/\s+/g, '').substring(0, 2).toUpperCase();
+      const state = stateMatch[1]
+        .replace(/\s+/g, "")
+        .substring(0, 2)
+        .toUpperCase();
       return `${state}-${stateMatch[2]}`;
     }
 
     // Route patterns
-    const routeMatch = name.match(/route\s+(\d+)/i) || name.match(/sr\s+(\d+)/i);
+    const routeMatch =
+      name.match(/route\s+(\d+)/i) || name.match(/sr\s+(\d+)/i);
     if (routeMatch) {
       return `SR-${routeMatch[1]}`;
     }
@@ -786,7 +842,10 @@ export class HighwayDetectionComparisonService {
   /**
    * Calculate confidence based on geometric distance and geometry quality
    */
-  private calculateGeometricConfidence(distance: number, geometryPoints: number): number {
+  private calculateGeometricConfidence(
+    distance: number,
+    geometryPoints: number
+  ): number {
     let confidence = 0.5;
 
     // Distance-based confidence (closer = higher confidence)
@@ -808,14 +867,17 @@ export class HighwayDetectionComparisonService {
   private calculateEnhancedConfidence(
     distance: number,
     type: string,
-    geometryPoints: number,
+    geometryPoints: number
   ): number {
-    let confidence = this.calculateGeometricConfidence(distance, geometryPoints);
+    let confidence = this.calculateGeometricConfidence(
+      distance,
+      geometryPoints
+    );
 
     // Type-based confidence boost
-    if (type === 'interstate') confidence += 0.1;
-    else if (type === 'us_highway') confidence += 0.08;
-    else if (type === 'state_highway') confidence += 0.05;
+    if (type === "interstate") confidence += 0.1;
+    else if (type === "us_highway") confidence += 0.08;
+    else if (type === "state_highway") confidence += 0.05;
 
     return Math.min(1.0, confidence);
   }
@@ -827,16 +889,19 @@ export class HighwayDetectionComparisonService {
     result: PromiseSettledResult<{
       highways: Array<{
         name: string;
+        ref?: string;
+        displayName: string;
         type: string;
+        roadType: string;
         distance: number;
         confidence: number;
         metadata?: any;
       }>;
       processingTime: number;
     }>,
-    method: string,
+    method: string
   ): HighwayDetectionResult {
-    if (result.status === 'fulfilled') {
+    if (result.status === "fulfilled") {
       return {
         highways: result.value.highways,
         processingTime: result.value.processingTime,
@@ -847,7 +912,7 @@ export class HighwayDetectionComparisonService {
         highways: [],
         processingTime: 0,
         method,
-        error: result.reason?.message || 'Unknown error',
+        error: result.reason?.message || "Unknown error",
       };
     }
   }
@@ -855,7 +920,12 @@ export class HighwayDetectionComparisonService {
   /**
    * Calculate distance between two points using Haversine formula
    */
-  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
     const R = 6371000; // Earth's radius in meters
     const dLat = this.toRadians(lat2 - lat1);
     const dLon = this.toRadians(lon2 - lon1);

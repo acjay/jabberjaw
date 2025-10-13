@@ -1,97 +1,124 @@
-import { assertEquals, assertExists } from '@std/assert';
-import { beforeEach, describe, it } from '@std/testing/bdd';
-import { OpenAILLMService } from './openai-llm.service.ts';
-import { ContentRequestDto, ContentStyle } from '../dto/index.ts';
-import { POIType } from '../dto/structured-poi.dto.ts';
+import { assertEquals, assertExists } from "@std/assert";
+import { beforeEach, describe, it } from "@std/testing/bdd";
+import { OpenAILLMService } from "./openai-llm.service.ts";
+import { ContentRequestDto, ContentStyle } from "../dto/index.ts";
+import { POIType } from "../dto/structured-poi.dto.ts";
+import { TestUtils } from "../../shared/test-utils.ts";
 
-describe('OpenAILLMService', () => {
+describe("OpenAILLMService", () => {
   let service: OpenAILLMService;
 
   beforeEach(() => {
-    service = new OpenAILLMService();
+    const { mockHttpClient } = TestUtils.createMockEnvironment();
+    service = new OpenAILLMService(mockHttpClient.openaiClient);
   });
 
-  describe('generatePrompt', () => {
-    it('should generate prompt for text description input', () => {
+  describe("generatePrompt", () => {
+    it("should generate prompt for text description input", () => {
       const request = new ContentRequestDto({
-        input: { description: 'The town of Metuchen, NJ' },
+        input: { description: "The town of Metuchen, NJ" },
         contentStyle: ContentStyle.HISTORICAL,
       });
 
-      const prompt = service.generatePrompt(request.input, request.contentStyle!);
+      const prompt = service.generatePrompt(
+        request.input,
+        request.contentStyle!
+      );
 
       assertExists(prompt);
-      assertEquals(typeof prompt, 'string');
-      assertEquals(prompt.includes('Metuchen, NJ'), true);
-      assertEquals(prompt.includes('historical events'), true);
-      assertEquals(prompt.includes('3-minute'), true);
+      assertEquals(typeof prompt, "string");
+      assertEquals(prompt.includes("Metuchen, NJ"), true);
+      assertEquals(prompt.includes("historical events"), true);
+      assertEquals(prompt.includes("3-minute"), true);
     });
 
-    it('should generate prompt for structured POI input', () => {
+    it("should generate prompt for structured POI input", () => {
       const request = new ContentRequestDto({
         input: {
-          name: 'Morton Arboretum',
+          name: "Morton Arboretum",
           type: POIType.ARBORETUM,
           location: {
-            country: 'USA',
-            state: 'Illinois',
-            city: 'Lisle',
+            country: "USA",
+            state: "Illinois",
+            city: "Lisle",
             coordinates: { latitude: 41.8158, longitude: -88.0702 },
           },
-          description: 'Beautiful tree collections',
-          context: 'Located in DuPage County',
+          description: "Beautiful tree collections",
+          context: "Located in DuPage County",
         },
         contentStyle: ContentStyle.GEOGRAPHICAL,
       });
 
-      const prompt = service.generatePrompt(request.input, request.contentStyle!);
+      const prompt = service.generatePrompt(
+        request.input,
+        request.contentStyle!
+      );
 
       assertExists(prompt);
-      assertEquals(prompt.includes('Morton Arboretum'), true);
-      assertEquals(prompt.includes('arboretum'), true);
-      assertEquals(prompt.includes('Lisle'), true);
-      assertEquals(prompt.includes('coordinates'), true);
-      assertEquals(prompt.includes('geographical features'), true);
+      assertEquals(prompt.includes("Morton Arboretum"), true);
+      assertEquals(prompt.includes("arboretum"), true);
+      assertEquals(prompt.includes("Lisle"), true);
+      assertEquals(prompt.includes("coordinates"), true);
+      assertEquals(prompt.includes("geographical features"), true);
     });
 
-    it('should include different style instructions', () => {
+    it("should include different style instructions", () => {
       const textInput = new ContentRequestDto({
-        input: { description: 'Test location' },
+        input: { description: "Test location" },
       });
 
-      const historicalPrompt = service.generatePrompt(textInput.input, ContentStyle.HISTORICAL);
-      const culturalPrompt = service.generatePrompt(textInput.input, ContentStyle.CULTURAL);
-      const geographicalPrompt = service.generatePrompt(textInput.input, ContentStyle.GEOGRAPHICAL);
-      const mixedPrompt = service.generatePrompt(textInput.input, ContentStyle.MIXED);
+      const historicalPrompt = service.generatePrompt(
+        textInput.input,
+        ContentStyle.HISTORICAL
+      );
+      const culturalPrompt = service.generatePrompt(
+        textInput.input,
+        ContentStyle.CULTURAL
+      );
+      const geographicalPrompt = service.generatePrompt(
+        textInput.input,
+        ContentStyle.GEOGRAPHICAL
+      );
+      const mixedPrompt = service.generatePrompt(
+        textInput.input,
+        ContentStyle.MIXED
+      );
 
-      assertEquals(historicalPrompt.includes('historical events'), true);
-      assertEquals(culturalPrompt.includes('cultural significance'), true);
-      assertEquals(geographicalPrompt.includes('geographical features'), true);
-      assertEquals(mixedPrompt.includes('balanced mix'), true);
+      assertEquals(historicalPrompt.includes("historical events"), true);
+      assertEquals(culturalPrompt.includes("cultural significance"), true);
+      assertEquals(geographicalPrompt.includes("geographical features"), true);
+      assertEquals(mixedPrompt.includes("balanced mix"), true);
     });
   });
 
-  describe('generateContent', () => {
-    it('should throw error when API key is not configured', async () => {
+  describe("generateContent", () => {
+    it("should throw error when API key is not configured", async () => {
       // Temporarily clear the API key
-      const originalKey = Deno.env.get('OPENAI_API_KEY');
-      Deno.env.delete('OPENAI_API_KEY');
+      const originalKey = Deno.env.get("OPENAI_API_KEY");
+      Deno.env.delete("OPENAI_API_KEY");
 
-      const serviceWithoutKey = new OpenAILLMService();
+      // Create mock client without setting up test environment (which would set the API key)
+      const mockHttpClient = TestUtils.createMockHttpClient();
+      const mockClients = TestUtils.createMockApiClients(mockHttpClient);
+      const serviceWithoutKey = new OpenAILLMService(mockClients.openaiClient);
+
       const request = new ContentRequestDto({
-        input: { description: 'Test location' },
+        input: { description: "Test location" },
       });
 
       try {
         await serviceWithoutKey.generateContent(request);
-        throw new Error('Should have thrown an error');
+        throw new Error("Should have thrown an error");
       } catch (error) {
         assertEquals(error instanceof Error, true);
-        assertEquals((error as Error).message.includes('API key not configured'), true);
+        assertEquals(
+          (error as Error).message.includes("API key not configured"),
+          true
+        );
       } finally {
         // Restore the original key
         if (originalKey) {
-          Deno.env.set('OPENAI_API_KEY', originalKey);
+          Deno.env.set("OPENAI_API_KEY", originalKey);
         }
       }
     });

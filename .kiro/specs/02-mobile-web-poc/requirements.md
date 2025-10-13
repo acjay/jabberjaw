@@ -28,9 +28,9 @@ The mobile web POC will serve as a rapid prototype to test user interaction patt
 
 1. WHEN I load the web app THEN the system SHALL display clear start and stop buttons with mobile-friendly touch targets
 2. WHEN I press start for the first time THEN the system SHALL request location permissions, begin tracking, and play "Welcome to Jabberjaw! Once your trip begins, I'll start telling you about the places you pass by"
-3. WHEN I press start on subsequent launches THEN the system SHALL begin location tracking silently without immediate content generation
-4. WHEN I press start THEN the system SHALL NOT generate location-based content until my location changes by more than 100 feet from the starting point
-5. WHEN my location changes by more than 100 feet THEN the system SHALL begin generating and playing content about my new location
+3. WHEN I press start on subsequent launches THEN the system SHALL begin location tracking silently without immediate story generation
+4. WHEN I press start THEN the system SHALL NOT generate location-based stories until my location changes by more than 100 feet from the starting point
+5. WHEN my location changes by more than 100 feet THEN the system SHALL begin generating and playing stories about my new location
 6. WHEN I press stop THEN the system SHALL cease location tracking and audio playback
 7. WHEN content is playing THEN the system SHALL provide pause, resume, and skip controls
 8. WHEN I interact with controls THEN the system SHALL provide immediate visual feedback

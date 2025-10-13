@@ -23,10 +23,10 @@ backend/src/
 │   ├── content-generation.module.ts
 │   ├── dto/                        # Data transfer objects
 │   └── services/                   # Business logic services
-├── orchestration/                   # Workflow orchestration module
-│   ├── orchestration.controller.ts
-│   ├── orchestration.service.ts
-│   ├── orchestration.module.ts
+├── journey/                         # Journey workflow module
+│   ├── journey.controller.ts
+│   ├── journey.service.ts
+│   ├── journey.module.ts
 │   └── dto/                        # Request/response DTOs
 ├── poi-discovery/                   # POI identification module
 │   ├── poi-discovery.controller.ts
@@ -72,3 +72,11 @@ backend/src/
 - E2E tests in dedicated `backend/test/` directory
 - Test utilities and mocks in service directories
 - Separate test configurations for unit vs e2e tests
+
+## Kiro development
+
+We have two different types of specs in `.kiro/specs`: development specs and checkpoint specs.
+
+The development specs are the default. They describe the executional work to be done to build and improve the app. For the most part, this will be net new code. These are named so that they sort in chronological order on the filesystem. They are prefixed with a number and hyphen, followed by a short description of the work.
+
+Checkpoint specs descrbe the work to be done to carry out major revisions of project direction. For the most part, the requirements will be oriented to the needs of development team roles, and the tasks will indicate revisions to development specs and steering documents. There may also be tasks to do code refactors, such as renamings, but for the most part, should be delgating code tasks to the development specs. The result of completing a checkpoint spec should be that the development specs are brought up-to-date with the latest project intentions.

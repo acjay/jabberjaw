@@ -2,9 +2,9 @@
 
 ## Overview
 
-The Jabberjaw backend provisional MVP is a Deno-based service that provides location-aware content generation for travel applications. It consists of three main modules: Content Generation, POI Discovery, and Journey. The system is designed to be a first cut at the backend requirements, with the understanding that changes will be needed once mobile app development begins.
+The Jabberjaw backend provisional MVP is a Deno-based service that provides location-aware story generation for travel applications. It consists of three main modules: Story Generation, POI Discovery, and Journey. The system implements a two-phase story generation approach: first generating story seeds (summaries with titles), then expanding them into full stories on demand.
 
-The architecture prioritizes rapid development, testability, and modularity while providing the core functionality needed to support both web and mobile clients. The MVP is considered complete when the journey service can successfully coordinate location processing and content generation.
+The architecture prioritizes rapid development, testability, and modularity while providing the core functionality needed to support both web and mobile clients. The MVP is considered complete when the journey service can successfully coordinate location processing and story seed generation, with full story expansion available through dedicated endpoints.
 
 **Technology Stack:**
 
@@ -27,13 +27,18 @@ graph TB
 
     subgraph "Danet Backend Service"
         JOURNEY[Journey Module]
-        CONTENT[Content Generation Module]
+        STORY[Story Generation Module]
         POI[POI Discovery Module]
         STORAGE[In-Memory Storage]
+        SEED[Story Seed Service]
+        EXPANSION[Story Expansion Service]
 
-        JOURNEY --> CONTENT
+        JOURNEY --> STORY
         JOURNEY --> POI
-        CONTENT --> STORAGE
+        STORY --> SEED
+        STORY --> EXPANSION
+        SEED --> STORAGE
+        EXPANSION --> STORAGE
         POI --> STORAGE
     end
 
@@ -45,7 +50,7 @@ graph TB
 
     WEB --> JOURNEY
     MOBILE --> JOURNEY
-    CONTENT --> LLM
+    STORY --> LLM
     POI --> OVERPASS
     POI --> GOOGLE
 ```
@@ -57,28 +62,42 @@ sequenceDiagram
     participant Client
     participant Journey as Journey Module
     participant POI as POI Discovery
-    participant Content as Content Generation
+    participant Story as Story Generation
     participant LLM as External LLM
     participant Storage
 
-    Client->>Journey: POST /api/location {lat, lng}
+    Client->>Journey: POST /api/story-seeds-for-location {lat, lng}
     Journey->>POI: identifyPOIs(location)
     POI->>POI: Query Overpass API
     POI->>POI: Query Google Roads API
     POI-->>Journey: POI list with categories
 
-    Journey->>Content: generateContent(POIs)
-    Content->>Storage: checkCache(POIs, location)
+    Journey->>Story: generateStorySeeds(POIs, location)
+    Story->>Storage: checkStorySeedCache(POIs, location)
     alt Cache Miss
-        Content->>LLM: Generate narrative
-        LLM-->>Content: Generated text
-        Content->>Storage: storeContent(content, metadata)
+        Story->>LLM: Generate story summaries and titles
+        LLM-->>Story: Story seeds with titles and summaries
+        Story->>Storage: storeStorySeeds(seeds, metadata)
     else Cache Hit
-        Storage-->>Content: Cached content
+        Storage-->>Story: Cached story seeds
     end
 
-    Content-->>Journey: Generated content
-    Journey-->>Client: {segmentId, content, metadata}
+    Story-->>Journey: Story seeds with storyIds
+    Journey-->>Client: {storySeeds: [{storyId, title, summary}]}
+
+    Note over Client: Client selects story to play
+    Client->>Journey: GET /api/story/:storyId
+    Journey->>Story: expandStory(storyId)
+    Story->>Storage: checkFullStoryCache(storyId)
+    alt Full Story Not Generated
+        Story->>LLM: Expand story seed to full narrative
+        LLM-->>Story: Full story content
+        Story->>Storage: storeFullStory(storyId, content)
+    else Full Story Cached
+        Storage-->>Story: Cached full story
+    end
+    Story-->>Journey: Full story content
+    Journey-->>Client: {storyId, title, content, metadata}
 ```
 
 ## Components and Interfaces
@@ -88,37 +107,37 @@ sequenceDiagram
 **Responsibilities:**
 
 - Coordinate location processing workflow
-- Manage client API endpoints
+- Manage client API endpoints for story seed discovery and story retrieval
 - Handle request validation and response formatting
 - Provide system health monitoring
 
 **API Endpoints:**
 
 ```typescript
-// Primary journey endpoint
-POST /api/location
+// Primary story seeds endpoint
+POST /api/story-seeds-for-location
 Request: {
   latitude: number;
   longitude: number;
   userId?: string; // Optional for future use
 }
 Response: {
-  segmentId: string;
-  content: string;
-  estimatedDuration: number;
+  storySeeds: StorySeed[];
   location: LocationData;
   pois: PointOfInterest[];
+  totalAvailable: number;
 }
 
-// Retrieve specific content segment
-GET /api/segment/:id
+// Retrieve full story content
+GET /api/story/:storyId
 Response: {
-  id: string;
+  storyId: string;
+  storyTitle: string;
   content: string;
+  estimatedDuration: number;
   location: LocationData;
   pois: PointOfInterest[];
   generatedAt: Date;
-  estimatedDuration: number;
 }
 
 // System health check
@@ -126,7 +145,7 @@ GET /api/health
 Response: {
   status: "healthy" | "degraded" | "unhealthy";
   services: {
-    contentGeneration: ServiceStatus;
+    storyGeneration: ServiceStatus;
     poiDiscovery: ServiceStatus;
     storage: ServiceStatus;
   };
@@ -141,15 +160,17 @@ Response: {
 export class JourneyService {
   constructor(
     private poiService: POIDiscoveryService,
-    private contentService: ContentGenerationService
+    private storyService: StoryGenerationService
   ) {}
 
-  async processLocation(request: LocationRequest): Promise<ContentSegment> {
-    // Coordinate POI discovery and content generation
+  async generateStorySeedsForLocation(
+    request: LocationRequest
+  ): Promise<StorySeedsResponse> {
+    // Coordinate POI discovery and story seed generation
   }
 
-  async getSegment(segmentId: string): Promise<ContentSegment | null> {
-    // Retrieve stored content segment
+  async getStory(storyId: string): Promise<FullStory | null> {
+    // Retrieve or generate full story content
   }
 
   getHealthStatus(): HealthStatus {
@@ -158,40 +179,53 @@ export class JourneyService {
 }
 ```
 
-### Content Generation Module
+### Story Generation Module
 
 **Responsibilities:**
 
-- Generate travel narratives using LLM integration
-- Manage content caching and storage
+- Generate story seeds (summaries and titles) using LLM integration
+- Expand story seeds into full narratives on demand
+- Manage story caching and storage with story seed persistence
 - Handle both text and structured POI inputs
 - Provide standalone testing endpoints
 
 **API Endpoints:**
 
 ```typescript
-// Generate content from POI descriptions
-POST /api/content/generate
+// Generate story seeds from POI descriptions
+POST /api/story/generate-seeds
 Request: {
   description: string;
+  location: LocationData;
 } | {
-  poi: StructuredPOI;
+  pois: StructuredPOI[];
+  location: LocationData;
 }
 Response: {
-  id: string;
+  storySeeds: StorySeed[];
+  generatedAt: Date;
+}
+
+// Generate full story from story seed
+POST /api/story/expand/:storyId
+Response: {
+  storyId: string;
+  storyTitle: string;
   content: string;
   estimatedDuration: number;
   generatedAt: Date;
 }
 
-// Retrieve generated content
-GET /api/content/:id
+// Retrieve story seed or full story
+GET /api/story/:storyId
 Response: {
-  id: string;
-  content: string;
-  prompt: string;
+  storyId: string;
+  storyTitle: string;
+  storySummary: string;
+  content?: string; // Only present if full story has been generated
+  location: LocationData;
   generatedAt: Date;
-  estimatedDuration: number;
+  estimatedDuration?: number;
 }
 ```
 
@@ -199,32 +233,49 @@ Response: {
 
 ```typescript
 @Injectable()
-export class ContentGenerationService {
+export class StoryGenerationService {
   constructor(
     private llmService: LLMService,
-    private storageService: ContentStorageService
+    private storageService: StoryStorageService
   ) {}
 
-  async generateContent(input: ContentInput): Promise<GeneratedContent> {
-    // Check cache, generate if needed, store result
+  async generateStorySeeds(input: StoryInput): Promise<StorySeed[]> {
+    // Generate story summaries and titles, store as seeds
+  }
+
+  async expandStory(storyId: string): Promise<FullStory> {
+    // Expand story seed into full narrative content
+  }
+
+  async getStory(storyId: string): Promise<StorySeed | FullStory | null> {
+    // Retrieve story seed or full story if available
   }
 }
 
 @Injectable()
 export class LLMService {
-  async generateNarrative(prompt: string): Promise<string> {
-    // OpenAI API integration with fallback to mock
+  async generateStorySeeds(prompt: string): Promise<StorySeed[]> {
+    // Generate multiple story summaries and titles
+  }
+
+  async expandStorySeed(storySeed: StorySeed): Promise<string> {
+    // Expand story seed into full narrative
   }
 }
 
 @Injectable()
-export class ContentStorageService {
+export class StoryStorageService {
   // In-memory storage for MVP
-  private contentCache = new Map<string, StoredContent>();
+  private storySeedCache = new Map<string, StorySeed>();
+  private fullStoryCache = new Map<string, FullStory>();
 
-  async store(content: StoredContent): Promise<void> {}
-  async retrieve(id: string): Promise<StoredContent | null> {}
-  async findByLocation(location: LocationData): Promise<StoredContent[]> {}
+  async storeStorySeed(seed: StorySeed): Promise<void> {}
+  async storeFullStory(storyId: string, content: string): Promise<void> {}
+  async retrieveStorySeed(storyId: string): Promise<StorySeed | null> {}
+  async retrieveFullStory(storyId: string): Promise<FullStory | null> {}
+  async findStorySeedsByLocation(
+    location: LocationData
+  ): Promise<StorySeed[]> {}
 }
 ```
 
@@ -311,28 +362,38 @@ enum POICategory {
 }
 ```
 
-### Content Generation Models
+### Story Generation Models
 
 ```typescript
-interface ContentInput {
+interface StoryInput {
   type: "text" | "structured";
-  data: string | StructuredPOI;
+  data: string | StructuredPOI[];
   location: LocationData;
   context?: string;
 }
 
-interface GeneratedContent {
-  id: string;
-  content: string;
-  estimatedDuration: number;
+interface StorySeed {
+  storyId: string; // Surrogate key
+  storyTitle: string; // LLM-generated title (part of natural key)
+  storySummary: string; // Paragraph-long summary
+  location: LocationData; // Location context (part of natural key)
+  subject: string; // Subject matter (part of natural key)
+  style?: string; // Content style (part of natural key)
   sources: string[];
   poiReferences: string[];
   generatedAt: Date;
 }
 
-interface StoredContent extends GeneratedContent {
+interface FullStory extends StorySeed {
+  content: string; // Full expanded narrative
+  estimatedDuration: number;
+  expandedAt: Date;
+}
+
+interface StoredStory {
+  storySeed: StorySeed;
+  fullStory?: string; // Only present if expanded
   prompt: string;
-  location: LocationData;
   pois: PointOfInterest[];
   // Future extension fields
   userId?: string;
@@ -356,8 +417,16 @@ export class LocationRequestDto {
   userId?: string;
 }
 
-export class ContentSegmentDto {
-  segmentId: string;
+export class StorySeedsResponseDto {
+  storySeeds: StorySeed[];
+  location: LocationData;
+  pois: PointOfInterest[];
+  totalAvailable: number;
+}
+
+export class FullStoryResponseDto {
+  storyId: string;
+  storyTitle: string;
   content: string;
   estimatedDuration: number;
   location: LocationData;
@@ -365,13 +434,24 @@ export class ContentSegmentDto {
   generatedAt: Date;
 }
 
-// Content Generation DTOs
-export class ContentGenerationRequestDto {
+// Story Generation DTOs
+export class StoryGenerationRequestDto {
   @IsString()
   description?: string;
 
   @IsOptional()
-  poi?: StructuredPOI;
+  pois?: StructuredPOI[];
+
+  @IsObject()
+  location: LocationData;
+}
+
+export class StorySeedDto {
+  storyId: string;
+  storyTitle: string;
+  storySummary: string;
+  location: LocationData;
+  generatedAt: Date;
 }
 ```
 
@@ -382,14 +462,31 @@ export class ContentGenerationRequestDto {
 ```typescript
 @Injectable()
 export class ErrorHandlingService {
-  handleLLMError(error: Error): string {
-    // Fallback to generic content or cached alternatives
-    return "I'm having trouble generating content right now. Let me try again in a moment.";
+  handleLLMError(error: Error): StorySeed[] {
+    // Fallback to generic story seeds or cached alternatives
+    return [
+      {
+        storyId: "fallback-story",
+        storyTitle: "Local Area Information",
+        storySummary:
+          "I'm having trouble generating stories right now. Let me try again in a moment.",
+        location: error.context?.location,
+        subject: "fallback",
+        sources: [],
+        poiReferences: [],
+        generatedAt: new Date(),
+      },
+    ];
   }
 
   handlePOIDiscoveryError(error: Error): PointOfInterest[] {
     // Return empty array or basic location-based POI
     return [];
+  }
+
+  handleStoryNotFoundError(storyId: string): void {
+    // Handle cases where story seed doesn't exist
+    throw new Error(`Story with ID ${storyId} not found`);
   }
 
   handleNetworkError(error: Error): void {
@@ -417,7 +514,9 @@ export enum ErrorCodes {
   INVALID_LOCATION = "INVALID_LOCATION",
   LLM_SERVICE_UNAVAILABLE = "LLM_SERVICE_UNAVAILABLE",
   POI_DISCOVERY_FAILED = "POI_DISCOVERY_FAILED",
-  CONTENT_NOT_FOUND = "CONTENT_NOT_FOUND",
+  STORY_NOT_FOUND = "STORY_NOT_FOUND",
+  STORY_SEED_NOT_FOUND = "STORY_SEED_NOT_FOUND",
+  STORY_EXPANSION_FAILED = "STORY_EXPANSION_FAILED",
   RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED",
 }
 ```
@@ -449,19 +548,19 @@ interface ServiceConfig {
 
 ```typescript
 // Example service test structure
-describe("ContentGenerationService", () => {
-  let service: ContentGenerationService;
+describe("StoryGenerationService", () => {
+  let service: StoryGenerationService;
   let mockLLMService: MockLLMService;
-  let mockStorageService: MockContentStorageService;
+  let mockStorageService: MockStoryStorageService;
 
   beforeEach(() => {
     mockLLMService = new MockLLMService();
-    mockStorageService = new MockContentStorageService();
-    service = new ContentGenerationService(mockLLMService, mockStorageService);
+    mockStorageService = new MockStoryStorageService();
+    service = new StoryGenerationService(mockLLMService, mockStorageService);
   });
 
-  it("should generate content for text input", async () => {
-    const input: ContentInput = {
+  it("should generate story seeds for text input", async () => {
+    const input: StoryInput = {
       type: "text",
       data: "The town of Princeton, NJ",
       location: {
@@ -471,14 +570,28 @@ describe("ContentGenerationService", () => {
       },
     };
 
-    const result = await service.generateContent(input);
+    const result = await service.generateStorySeeds(input);
+
+    assertEquals(Array.isArray(result), true);
+    assertEquals(result.length > 0, true);
+    assertEquals(typeof result[0].storyTitle, "string");
+    assertEquals(typeof result[0].storySummary, "string");
+  });
+
+  it("should expand story seed to full story", async () => {
+    const storyId = "test-story-id";
+    const result = await service.expandStory(storyId);
 
     assertEquals(typeof result.content, "string");
     assertEquals(result.estimatedDuration > 0, true);
   });
 
-  it("should use cached content when available", async () => {
-    // Test caching behavior
+  it("should use cached story seeds when available", async () => {
+    // Test story seed caching behavior
+  });
+
+  it("should use cached full story when available", async () => {
+    // Test full story caching behavior
   });
 });
 ```
@@ -486,7 +599,7 @@ describe("ContentGenerationService", () => {
 ### Integration Testing
 
 ```typescript
-// E2E test for journey endpoint
+// E2E test for journey endpoints
 describe("Journey API", () => {
   let app: DanetApplication;
 
@@ -496,20 +609,53 @@ describe("Journey API", () => {
     await app.listen(3001);
   });
 
-  it("should process location and return content segment", async () => {
-    const response = await fetch("http://localhost:3001/api/location", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        latitude: 40.3573,
-        longitude: -74.6672,
-      }),
-    });
+  it("should process location and return story seeds", async () => {
+    const response = await fetch(
+      "http://localhost:3001/api/story-seeds-for-location",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: 40.3573,
+          longitude: -74.6672,
+        }),
+      }
+    );
 
     assertEquals(response.status, 200);
     const data = await response.json();
-    assertEquals(typeof data.segmentId, "string");
-    assertEquals(typeof data.content, "string");
+    assertEquals(Array.isArray(data.storySeeds), true);
+    assertEquals(data.storySeeds.length > 0, true);
+    assertEquals(typeof data.storySeeds[0].storyId, "string");
+    assertEquals(typeof data.storySeeds[0].storyTitle, "string");
+    assertEquals(typeof data.storySeeds[0].storySummary, "string");
+  });
+
+  it("should retrieve full story content", async () => {
+    // First generate story seeds
+    const seedsResponse = await fetch(
+      "http://localhost:3001/api/story-seeds-for-location",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: 40.3573,
+          longitude: -74.6672,
+        }),
+      }
+    );
+    const seedsData = await seedsResponse.json();
+    const storyId = seedsData.storySeeds[0].storyId;
+
+    // Then retrieve full story
+    const storyResponse = await fetch(
+      `http://localhost:3001/api/story/${storyId}`
+    );
+    assertEquals(storyResponse.status, 200);
+    const storyData = await storyResponse.json();
+    assertEquals(typeof storyData.storyId, "string");
+    assertEquals(typeof storyData.content, "string");
+    assertEquals(typeof storyData.estimatedDuration, "number");
   });
 });
 ```
@@ -519,9 +665,28 @@ describe("Journey API", () => {
 ```typescript
 @Injectable()
 export class MockLLMService implements LLMService {
-  async generateNarrative(prompt: string): Promise<string> {
-    // Return deterministic mock content for testing
-    return `Mock narrative content for: ${prompt.substring(0, 50)}...`;
+  async generateStorySeeds(prompt: string): Promise<StorySeed[]> {
+    // Return deterministic mock story seeds for testing
+    return [
+      {
+        storyId: "mock-story-1",
+        storyTitle: "Historic Town Center",
+        storySummary: `Mock story summary for: ${prompt.substring(0, 30)}...`,
+        location: {
+          latitude: 40.3573,
+          longitude: -74.6672,
+          timestamp: new Date(),
+        },
+        subject: "history",
+        sources: ["mock"],
+        poiReferences: ["test-poi-1"],
+        generatedAt: new Date(),
+      },
+    ];
+  }
+
+  async expandStorySeed(storySeed: StorySeed): Promise<string> {
+    return `Mock expanded narrative for "${storySeed.storyTitle}": ${storySeed.storySummary} This is the full story content that would be generated by the LLM service.`;
   }
 }
 
@@ -636,10 +801,12 @@ For the provisional MVP, the focus is on simplicity and rapid iteration:
 
 ### Performance Considerations
 
-- **Content Caching**: Aggressive caching to minimize LLM API calls
-- **Request Deduplication**: Avoid duplicate requests for same location
-- **Timeout Management**: Reasonable timeouts for external services
-- **Memory Management**: Monitor in-memory cache size and implement cleanup
+- **Story Seed Caching**: Aggressive caching of story seeds to minimize LLM API calls for initial discovery
+- **Full Story Caching**: Cache expanded stories to avoid re-generation on subsequent requests
+- **Request Deduplication**: Avoid duplicate story seed generation for same location and context
+- **Lazy Story Expansion**: Only generate full story content when specifically requested
+- **Timeout Management**: Reasonable timeouts for external services (story seed generation vs full story expansion)
+- **Memory Management**: Monitor in-memory cache size for both story seeds and full stories, implement cleanup
 
 ### Security Considerations
 
@@ -649,4 +816,4 @@ For the provisional MVP, the focus is on simplicity and rapid iteration:
 - **CORS Policy**: Restrictive CORS policy for production deployment
 - **Error Information**: Avoid exposing sensitive information in error responses
 
-This design provides a solid foundation for the backend provisional MVP while maintaining flexibility for future enhancements and mobile app integration.
+This design provides a solid foundation for the backend provisional MVP with the new story-based approach, implementing two-phase content generation while maintaining flexibility for future enhancements and mobile app integration. The story seed and expansion methodology allows for efficient content discovery and on-demand generation, supporting better user experience and resource management.

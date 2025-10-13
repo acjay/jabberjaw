@@ -6,7 +6,7 @@ A location-aware mobile application that generates podcast-style narration about
 
 This is a monorepo containing:
 
-- `backend/` - Danet (Deno) backend service for content generation and orchestration
+- `backend/` - Danet (Deno) backend service for story generation and journey coordination
 - `android/` - Android mobile application (to be implemented)
 - `ios/` - iOS mobile application (planned)
 
@@ -76,8 +76,8 @@ Copy `backend/.env.example` to `backend/.env` and configure the required environ
 
 The system follows a modular architecture with:
 
-- **Orchestration Module**: Coordinates location processing and content generation
-- **Content Generation Module**: Handles POI identification and LLM integration
+- **Journey Module**: Coordinates location processing and story generation
+- **Story Generation Module**: Handles POI identification and LLM integration
 - **Data Storage Module**: Manages content persistence and caching
 
 ## Technology Stack

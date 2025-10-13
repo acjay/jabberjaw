@@ -1,5 +1,6 @@
-import { Injectable } from '@danet/core';
-import { LocationData } from '../../models/location.model.ts';
+import { Injectable } from "@danet/core";
+import { LocationData } from "../../models/location.model.ts";
+import { GoogleMapsClient } from "../../shared/index.ts";
 
 /**
  * Google Roads API response interfaces
@@ -43,14 +44,19 @@ export interface RoadInfo {
  */
 @Injectable()
 export class GoogleRoadsService {
-  private readonly baseUrl = 'https://roads.googleapis.com/v1';
+  private readonly baseUrl = "https://roads.googleapis.com/v1";
   private readonly apiKey: string;
 
-  constructor() {
-    this.apiKey = Deno.env.get('GOOGLE_ROADS_API_KEY') || Deno.env.get('GOOGLE_PLACES_API_KEY') || '';
-    
+  constructor(private readonly googleMapsClient: GoogleMapsClient) {
+    this.apiKey =
+      Deno.env.get("GOOGLE_ROADS_API_KEY") ||
+      Deno.env.get("GOOGLE_PLACES_API_KEY") ||
+      "";
+
     if (!this.apiKey) {
-      console.warn('Google Roads API key not configured. Service will not function properly.');
+      console.warn(
+        "Google Roads API key not configured. Service will not function properly."
+      );
     }
   }
 
@@ -60,33 +66,17 @@ export class GoogleRoadsService {
    */
   async snapToRoads(location: LocationData): Promise<RoadInfo | null> {
     if (!this.apiKey) {
-      throw new Error('Google Roads API key not configured');
+      throw new Error("Google Roads API key not configured");
     }
 
     try {
-      const url = new URL(`${this.baseUrl}/snapToRoads`);
-      url.searchParams.set('path', `${location.latitude},${location.longitude}`);
-      url.searchParams.set('interpolate', 'true');
-      url.searchParams.set('key', this.apiKey);
-
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'RoadTripNarrator/1.0',
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 403) {
-          throw new Error('Google Roads API access denied. Check API key and billing.');
+      const data: SnapToRoadsResponse = await this.googleMapsClient.snapToRoads(
+        {
+          path: `${location.latitude},${location.longitude}`,
+          interpolate: "true",
+          key: this.apiKey,
         }
-        if (response.status === 429) {
-          throw new Error('Google Roads API rate limit exceeded');
-        }
-        throw new Error(`Google Roads API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data: SnapToRoadsResponse = await response.json();
+      );
 
       if (!data.snappedPoints || data.snappedPoints.length === 0) {
         return null; // No road found at this location
@@ -115,7 +105,7 @@ export class GoogleRoadsService {
         confidence: this.calculateConfidence(distanceFromOriginal),
       };
     } catch (error) {
-      console.error('Error in snapToRoads:', error);
+      console.error("Error in snapToRoads:", error);
       throw error;
     }
   }
@@ -126,32 +116,15 @@ export class GoogleRoadsService {
    */
   async findNearestRoads(location: LocationData): Promise<RoadInfo[]> {
     if (!this.apiKey) {
-      throw new Error('Google Roads API key not configured');
+      throw new Error("Google Roads API key not configured");
     }
 
     try {
-      const url = new URL(`${this.baseUrl}/nearestRoads`);
-      url.searchParams.set('points', `${location.latitude},${location.longitude}`);
-      url.searchParams.set('key', this.apiKey);
-
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'RoadTripNarrator/1.0',
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 403) {
-          throw new Error('Google Roads API access denied. Check API key and billing.');
-        }
-        if (response.status === 429) {
-          throw new Error('Google Roads API rate limit exceeded');
-        }
-        throw new Error(`Google Roads API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data: NearestRoadsResponse = await response.json();
+      const data: NearestRoadsResponse =
+        await this.googleMapsClient.nearestRoads({
+          points: `${location.latitude},${location.longitude}`,
+          key: this.apiKey,
+        });
 
       if (!data.snappedPoints || data.snappedPoints.length === 0) {
         return [];
@@ -168,7 +141,9 @@ export class GoogleRoadsService {
         );
 
         // Get road name using the place ID
-        const roadName = await this.getRoadNameFromPlaceId(snappedPoint.placeId);
+        const roadName = await this.getRoadNameFromPlaceId(
+          snappedPoint.placeId
+        );
 
         roadInfos.push({
           roadName,
@@ -183,13 +158,15 @@ export class GoogleRoadsService {
         });
 
         // Small delay to respect rate limits
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise((resolve) => setTimeout(resolve, 50));
       }
 
       // Sort by distance (closest first)
-      return roadInfos.sort((a, b) => a.distanceFromOriginal - b.distanceFromOriginal);
+      return roadInfos.sort(
+        (a, b) => a.distanceFromOriginal - b.distanceFromOriginal
+      );
     } catch (error) {
-      console.error('Error in findNearestRoads:', error);
+      console.error("Error in findNearestRoads:", error);
       throw error;
     }
   }
@@ -197,25 +174,22 @@ export class GoogleRoadsService {
   /**
    * Get road name from Google Places API using place ID
    */
-  private async getRoadNameFromPlaceId(placeId: string): Promise<string | undefined> {
+  private async getRoadNameFromPlaceId(
+    placeId: string
+  ): Promise<string | undefined> {
     try {
-      const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
-      url.searchParams.set('place_id', placeId);
-      url.searchParams.set('fields', 'name,formatted_address,types');
-      url.searchParams.set('key', this.apiKey);
+      const data = await this.googleMapsClient.placeDetails({
+        place_id: placeId,
+        fields: "name,formatted_address,types",
+        key: this.apiKey,
+      });
 
-      const response = await fetch(url.toString());
-      
-      if (!response.ok) {
-        console.warn(`Failed to get place details for ${placeId}: ${response.status}`);
-        return undefined;
-      }
-
-      const data = await response.json();
-      
       if (data.result) {
         // Prefer the name field, but fall back to formatted_address
-        return data.result.name || this.extractRoadNameFromAddress(data.result.formatted_address);
+        return (
+          data.result.name ||
+          this.extractRoadNameFromAddress(data.result.formatted_address)
+        );
       }
 
       return undefined;
@@ -229,10 +203,10 @@ export class GoogleRoadsService {
    * Extract road name from formatted address
    */
   private extractRoadNameFromAddress(address: string): string {
-    if (!address) return 'Unknown Road';
+    if (!address) return "Unknown Road";
 
     // Try to extract the first part of the address which is usually the road name
-    const parts = address.split(',');
+    const parts = address.split(",");
     if (parts.length > 0) {
       return parts[0].trim();
     }
@@ -248,21 +222,28 @@ export class GoogleRoadsService {
     // 100% confidence at 0m, decreasing to 0% at 1000m
     if (distanceMeters <= 0) return 1.0;
     if (distanceMeters >= 1000) return 0.0;
-    
-    return Math.max(0, 1 - (distanceMeters / 1000));
+
+    return Math.max(0, 1 - distanceMeters / 1000);
   }
 
   /**
    * Calculate distance between two points using Haversine formula
    */
-  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
     const R = 6371000; // Earth's radius in meters
     const dLat = this.toRadians(lat2 - lat1);
     const dLon = this.toRadians(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.cos(this.toRadians(lat1)) *
+        Math.cos(this.toRadians(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
@@ -292,7 +273,7 @@ export class GoogleRoadsService {
     try {
       // Test with a known location (Times Square, NYC)
       const testLocation: LocationData = {
-        latitude: 40.7580,
+        latitude: 40.758,
         longitude: -73.9855,
         timestamp: new Date(),
         accuracy: 10,
@@ -301,7 +282,7 @@ export class GoogleRoadsService {
       const result = await this.snapToRoads(testLocation);
       return result !== null;
     } catch (error) {
-      console.error('Google Roads API connection test failed:', error);
+      console.error("Google Roads API connection test failed:", error);
       return false;
     }
   }

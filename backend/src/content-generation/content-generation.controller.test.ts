@@ -1,13 +1,15 @@
-import { assertEquals, assertExists } from '@std/assert';
-import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import { DanetApplication } from '@danet/core';
-import { ContentGenerationModule } from './content-generation.module.ts';
-import { ContentStyle } from './dto/content-request.dto.ts';
-import { POIType } from './dto/structured-poi.dto.ts';
+import { assertEquals, assertExists } from "@std/assert";
+import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
+import { DanetApplication } from "@danet/core";
+import { ContentGenerationModule } from "./content-generation.module.ts";
+import { ContentStyle } from "./dto/content-request.dto.ts";
+import { POIType } from "./dto/structured-poi.dto.ts";
+import { TestUtils } from "../shared/test-utils.ts";
 
-describe('ContentGenerationController API Endpoints', () => {
+describe("ContentGenerationController API Endpoints", () => {
   let app: DanetApplication;
   let baseUrl: string;
+  let cleanup: () => void;
 
   beforeEach(async () => {
     app = new DanetApplication();
@@ -15,8 +17,8 @@ describe('ContentGenerationController API Endpoints', () => {
 
     // Enable CORS for testing
     app.enableCors({
-      origin: '*',
-      allowHeaders: ['Content-Type', 'Authorization', 'Accept'],
+      origin: "*",
+      allowHeaders: ["Content-Type", "Authorization", "Accept"],
       credentials: true,
     });
 
@@ -31,20 +33,20 @@ describe('ContentGenerationController API Endpoints', () => {
     }
   });
 
-  describe('POST /api/content/generate', () => {
-    it('should generate content with text description input', async () => {
+  describe("POST /api/content/generate", () => {
+    it("should generate content with text description input", async () => {
       const requestBody = {
         input: {
-          description: 'The town of Metuchen, NJ, USA',
+          description: "The town of Metuchen, NJ, USA",
         },
         targetDuration: 180,
         contentStyle: ContentStyle.HISTORICAL,
       };
 
       const response = await fetch(`${baseUrl}/api/content/generate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
       });
@@ -55,35 +57,35 @@ describe('ContentGenerationController API Endpoints', () => {
       assertExists(result.id);
       assertExists(result.content);
       assertExists(result.estimatedDuration);
-      assertEquals(typeof result.content, 'string');
-      assertEquals(typeof result.estimatedDuration, 'number');
+      assertEquals(typeof result.content, "string");
+      assertEquals(typeof result.estimatedDuration, "number");
     });
 
-    it('should generate content with structured POI input', async () => {
+    it("should generate content with structured POI input", async () => {
       const requestBody = {
         input: {
-          name: 'Morton Arboretum',
+          name: "Morton Arboretum",
           type: POIType.ARBORETUM,
           location: {
-            country: 'USA',
-            state: 'Illinois',
-            city: 'Lisle',
+            country: "USA",
+            state: "Illinois",
+            city: "Lisle",
             coordinates: {
               latitude: 41.8158,
               longitude: -88.0702,
             },
           },
-          description: 'A beautiful arboretum with diverse tree collections',
-          context: 'Located in DuPage County',
+          description: "A beautiful arboretum with diverse tree collections",
+          context: "Located in DuPage County",
         },
         targetDuration: 180,
         contentStyle: ContentStyle.CULTURAL,
       };
 
       const response = await fetch(`${baseUrl}/api/content/generate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
       });
@@ -94,19 +96,19 @@ describe('ContentGenerationController API Endpoints', () => {
       assertExists(result.id);
       assertExists(result.content);
       assertExists(result.estimatedDuration);
-      assertEquals(typeof result.content, 'string');
-      assertEquals(typeof result.estimatedDuration, 'number');
+      assertEquals(typeof result.content, "string");
+      assertEquals(typeof result.estimatedDuration, "number");
     });
 
-    it('should return 400 for invalid request body', async () => {
+    it("should return 400 for invalid request body", async () => {
       const requestBody = {
         input: null, // Invalid input
       };
 
       const response = await fetch(`${baseUrl}/api/content/generate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
       });
@@ -115,15 +117,15 @@ describe('ContentGenerationController API Endpoints', () => {
       assertEquals(response.status, 400);
     });
 
-    it('should return 400 for missing input', async () => {
+    it("should return 400 for missing input", async () => {
       const requestBody = {
         targetDuration: 180,
       };
 
       const response = await fetch(`${baseUrl}/api/content/generate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
       });
@@ -132,13 +134,13 @@ describe('ContentGenerationController API Endpoints', () => {
       assertEquals(response.status, 400);
     });
 
-    it('should handle CORS preflight request', async () => {
+    it("should handle CORS preflight request", async () => {
       const response = await fetch(`${baseUrl}/api/content/generate`, {
-        method: 'OPTIONS',
+        method: "OPTIONS",
         headers: {
-          'Origin': 'http://localhost:3000',
-          'Access-Control-Request-Method': 'POST',
-          'Access-Control-Request-Headers': 'Content-Type',
+          Origin: "http://localhost:3000",
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "Content-Type",
         },
       });
 
@@ -146,24 +148,24 @@ describe('ContentGenerationController API Endpoints', () => {
       await response.text();
 
       assertEquals(response.status, 204); // Danet returns 204 for OPTIONS
-      assertExists(response.headers.get('Access-Control-Allow-Origin'));
-      assertExists(response.headers.get('Access-Control-Allow-Methods'));
+      assertExists(response.headers.get("Access-Control-Allow-Origin"));
+      assertExists(response.headers.get("Access-Control-Allow-Methods"));
     });
   });
 
-  describe('GET /api/content/:id', () => {
-    it('should retrieve generated content by ID', async () => {
+  describe("GET /api/content/:id", () => {
+    it("should retrieve generated content by ID", async () => {
       // First generate content
       const generateBody = {
         input: {
-          description: 'Test location for retrieval',
+          description: "Test location for retrieval",
         },
       };
 
       const generateResponse = await fetch(`${baseUrl}/api/content/generate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(generateBody),
       });
@@ -172,7 +174,9 @@ describe('ContentGenerationController API Endpoints', () => {
       const contentId = generated.id;
 
       // Then retrieve it
-      const retrieveResponse = await fetch(`${baseUrl}/api/content/${contentId}`);
+      const retrieveResponse = await fetch(
+        `${baseUrl}/api/content/${contentId}`
+      );
 
       assertEquals(retrieveResponse.status, 200);
 
@@ -183,8 +187,8 @@ describe('ContentGenerationController API Endpoints', () => {
       assertExists(retrieved.generatedAt);
     });
 
-    it('should return 404 for non-existent content ID', async () => {
-      const nonExistentId = 'non-existent-id';
+    it("should return 404 for non-existent content ID", async () => {
+      const nonExistentId = "non-existent-id";
 
       const response = await fetch(`${baseUrl}/api/content/${nonExistentId}`);
 
@@ -192,7 +196,7 @@ describe('ContentGenerationController API Endpoints', () => {
       assertEquals(response.status, 404);
     });
 
-    it('should return 200 for list endpoint when accessing empty path', async () => {
+    it("should return 200 for list endpoint when accessing empty path", async () => {
       const response = await fetch(`${baseUrl}/api/content/`);
 
       // This hits the list endpoint, which should return 200 with an array
@@ -202,14 +206,14 @@ describe('ContentGenerationController API Endpoints', () => {
     });
   });
 
-  describe('Error Handling', () => {
-    it('should handle malformed JSON in POST request', async () => {
+  describe("Error Handling", () => {
+    it("should handle malformed JSON in POST request", async () => {
       const response = await fetch(`${baseUrl}/api/content/generate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: 'invalid json',
+        body: "invalid json",
       });
 
       // Consume the response body to prevent resource leaks
@@ -218,18 +222,18 @@ describe('ContentGenerationController API Endpoints', () => {
       assertEquals(response.status, 500); // Danet returns 500 for JSON parse errors
     });
 
-    it('should validate content style enum', async () => {
+    it("should validate content style enum", async () => {
       const requestBody = {
         input: {
-          description: 'Test location',
+          description: "Test location",
         },
-        contentStyle: 'invalid_style',
+        contentStyle: "invalid_style",
       };
 
       const response = await fetch(`${baseUrl}/api/content/generate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
       });
@@ -238,18 +242,18 @@ describe('ContentGenerationController API Endpoints', () => {
       assertEquals(response.status, 400);
     });
 
-    it('should validate target duration range', async () => {
+    it("should validate target duration range", async () => {
       const requestBody = {
         input: {
-          description: 'Test location',
+          description: "Test location",
         },
         targetDuration: 10, // Too short
       };
 
       const response = await fetch(`${baseUrl}/api/content/generate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
       });
@@ -259,18 +263,18 @@ describe('ContentGenerationController API Endpoints', () => {
     });
   });
 
-  describe('Response Format Validation', () => {
-    it('should return properly formatted GeneratedContentDto', async () => {
+  describe("Response Format Validation", () => {
+    it("should return properly formatted GeneratedContentDto", async () => {
       const requestBody = {
         input: {
-          description: 'Test location for format validation',
+          description: "Test location for format validation",
         },
       };
 
       const response = await fetch(`${baseUrl}/api/content/generate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
       });
@@ -283,34 +287,34 @@ describe('ContentGenerationController API Endpoints', () => {
       assertExists(result.estimatedDuration);
 
       // Validate field types
-      assertEquals(typeof result.id, 'string');
-      assertEquals(typeof result.content, 'string');
-      assertEquals(typeof result.estimatedDuration, 'number');
+      assertEquals(typeof result.id, "string");
+      assertEquals(typeof result.content, "string");
+      assertEquals(typeof result.estimatedDuration, "number");
 
       // Validate optional fields if present
       if (result.prompt) {
-        assertEquals(typeof result.prompt, 'string');
+        assertEquals(typeof result.prompt, "string");
       }
       if (result.generatedAt) {
-        assertEquals(typeof result.generatedAt, 'string'); // ISO date string
+        assertEquals(typeof result.generatedAt, "string"); // ISO date string
       }
       if (result.sources) {
         assertEquals(Array.isArray(result.sources), true);
       }
     });
 
-    it('should return properly formatted StoredContent for GET endpoint', async () => {
+    it("should return properly formatted StoredContent for GET endpoint", async () => {
       // Generate content first
       const generateBody = {
         input: {
-          description: 'Test location for stored content format',
+          description: "Test location for stored content format",
         },
       };
 
       const generateResponse = await fetch(`${baseUrl}/api/content/generate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(generateBody),
       });
@@ -318,7 +322,9 @@ describe('ContentGenerationController API Endpoints', () => {
       const generated = await generateResponse.json();
 
       // Retrieve stored content
-      const retrieveResponse = await fetch(`${baseUrl}/api/content/${generated.id}`);
+      const retrieveResponse = await fetch(
+        `${baseUrl}/api/content/${generated.id}`
+      );
       const stored = await retrieveResponse.json();
 
       // Validate StoredContent format
@@ -327,10 +333,10 @@ describe('ContentGenerationController API Endpoints', () => {
       assertExists(stored.prompt);
       assertExists(stored.generatedAt);
 
-      assertEquals(typeof stored.id, 'string');
-      assertEquals(typeof stored.content, 'string');
-      assertEquals(typeof stored.prompt, 'string');
-      assertEquals(typeof stored.generatedAt, 'string');
+      assertEquals(typeof stored.id, "string");
+      assertEquals(typeof stored.content, "string");
+      assertEquals(typeof stored.prompt, "string");
+      assertEquals(typeof stored.generatedAt, "string");
     });
   });
 });

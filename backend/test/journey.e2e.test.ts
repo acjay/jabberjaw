@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, it } from "@std/testing/bdd";
 import { DanetApplication } from "@danet/core";
 import { AppModule } from "../src/app.module.ts";
 
-describe("Orchestration API (e2e)", () => {
+describe("Journey API (e2e)", () => {
   let app: DanetApplication;
   let baseUrl: string;
 
@@ -19,14 +19,14 @@ describe("Orchestration API (e2e)", () => {
     await app.close();
   });
 
-  describe("/api/location (POST)", () => {
-    it("should process location and return segment with POI data", async () => {
+  describe("/api/story-seeds-for-location (POST)", () => {
+    it("should process location and return story seeds with POI data", async () => {
       const locationData = {
         latitude: 40.7128,
         longitude: -74.006,
       };
 
-      const response = await fetch(`${baseUrl}/api/location`, {
+      const response = await fetch(`${baseUrl}/api/story-seeds-for-location`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -39,14 +39,16 @@ describe("Orchestration API (e2e)", () => {
       const result = await response.json();
 
       // Verify response structure
-      assertExists(result.segmentId);
+      assertExists(result.storyId);
       assertExists(result.audioUrl);
       assertExists(result.status);
       assertExists(result.estimatedDuration);
 
       assertEquals(result.status, "ready");
-      assertEquals(result.estimatedDuration, 180);
-      assertEquals(typeof result.segmentId, "string");
+      // Duration should be a positive number (varies based on content generation)
+      assertEquals(typeof result.estimatedDuration, "number");
+      assertEquals(result.estimatedDuration > 0, true);
+      assertEquals(typeof result.storyId, "string");
       assertEquals(typeof result.audioUrl, "string");
     });
 
@@ -56,7 +58,7 @@ describe("Orchestration API (e2e)", () => {
         longitude: -74.006,
       };
 
-      const response = await fetch(`${baseUrl}/api/location`, {
+      const response = await fetch(`${baseUrl}/api/story-seeds-for-location`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -69,48 +71,53 @@ describe("Orchestration API (e2e)", () => {
     });
   });
 
-  describe("/api/segment/:id (GET)", () => {
-    it("should retrieve segment by ID", async () => {
-      // First create a segment
+  describe("/api/story/:id (GET)", () => {
+    it("should retrieve story by ID", async () => {
+      // First create a story seed
       const locationData = {
         latitude: 40.7128,
         longitude: -74.006,
       };
 
-      const createResponse = await fetch(`${baseUrl}/api/location`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(locationData),
-      });
+      const createResponse = await fetch(
+        `${baseUrl}/api/story-seeds-for-location`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(locationData),
+        }
+      );
 
       const createResult = await createResponse.json();
-      const segmentId = createResult.segmentId;
+      const storyId = createResult.storyId;
 
-      // Now retrieve the segment
-      const getResponse = await fetch(`${baseUrl}/api/segment/${segmentId}`);
+      // Now retrieve the story
+      const getResponse = await fetch(`${baseUrl}/api/story/${storyId}`);
       assertEquals(getResponse.status, 200);
 
-      const segment = await getResponse.json();
+      const story = await getResponse.json();
 
-      // Verify segment structure
-      assertExists(segment.id);
-      assertExists(segment.content);
-      assertExists(segment.audioUrl);
-      assertExists(segment.duration);
-      assertExists(segment.status);
-      assertExists(segment.location);
-      assertExists(segment.generatedAt);
+      // Verify story structure
+      assertExists(story.storyId);
+      assertExists(story.content);
+      assertExists(story.audioUrl);
+      assertExists(story.duration);
+      assertExists(story.status);
+      assertExists(story.location);
+      assertExists(story.generatedAt);
 
-      assertEquals(segment.id, segmentId);
-      assertEquals(segment.status, "ready");
-      assertEquals(segment.duration, 180);
-      assertEquals(typeof segment.content, "string");
+      assertEquals(story.storyId, storyId);
+      assertEquals(story.status, "ready");
+      // Duration should be a positive number (varies based on content generation)
+      assertEquals(typeof story.duration, "number");
+      assertEquals(story.duration > 0, true);
+      assertEquals(typeof story.content, "string");
 
       // Verify the content includes POI information
       // Since we're using mock POIs, the content should mention them
-      const contentLower = segment.content.toLowerCase();
+      const contentLower = story.content.toLowerCase();
       const hasPOIContent =
         contentLower.includes("historic downtown") ||
         contentLower.includes("riverside park") ||
@@ -125,8 +132,8 @@ describe("Orchestration API (e2e)", () => {
       );
     });
 
-    it("should return 404 for non-existent segment", async () => {
-      const response = await fetch(`${baseUrl}/api/segment/non-existent-id`);
+    it("should return 404 for non-existent story", async () => {
+      const response = await fetch(`${baseUrl}/api/story/non-existent-id`);
       assertEquals(response.status, 404);
       await response.text(); // Consume response body to prevent leak
     });
@@ -140,11 +147,11 @@ describe("Orchestration API (e2e)", () => {
       const health = await response.json();
       assertExists(health.status);
       assertExists(health.service);
-      assertExists(health.segments);
+      assertExists(health.stories);
 
       assertEquals(health.status, "healthy");
-      assertEquals(health.service, "orchestration");
-      assertEquals(typeof health.segments, "number");
+      assertEquals(health.service, "journey");
+      assertEquals(typeof health.stories, "number");
     });
   });
 });

@@ -1,19 +1,19 @@
 export class LocationResponseDto {
-  segmentId!: string;
+  storyId!: string;
   audioUrl!: string;
-  status: 'generating' | 'ready' | 'error' = 'generating';
+  status: "generating" | "ready" | "error" = "generating";
   estimatedDuration?: number;
   message?: string;
 
   constructor(data: Partial<LocationResponseDto>) {
     Object.assign(this, data);
 
-    if (!this.segmentId) {
-      throw new Error('segmentId is required');
+    if (!this.storyId) {
+      throw new Error("storyId is required");
     }
 
     if (!this.audioUrl) {
-      throw new Error('audioUrl is required');
+      throw new Error("audioUrl is required");
     }
   }
 }
