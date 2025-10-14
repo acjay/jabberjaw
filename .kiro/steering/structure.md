@@ -18,11 +18,6 @@ The backend follows a modular architecture using Danet's module system:
 backend/src/
 ├── app.module.ts                    # Root application module
 ├── main.ts                          # Application entry point
-├── content-generation/              # Content generation module
-│   ├── content-generation.controller.ts
-│   ├── content-generation.module.ts
-│   ├── dto/                        # Data transfer objects
-│   └── services/                   # Business logic services
 ├── journey/                         # Journey workflow module
 │   ├── journey.controller.ts
 │   ├── journey.service.ts
@@ -32,6 +27,11 @@ backend/src/
 │   ├── poi-discovery.controller.ts
 │   ├── poi-discovery.module.ts
 │   └── services/                   # POI processing services
+├── story/              # Content generation module
+│   ├── story.controller.ts
+│   ├── story.module.ts
+│   ├── dto/                        # Data transfer objects
+│   └── services/                   # Business logic services
 └── models/                         # Shared data models
 ```
 

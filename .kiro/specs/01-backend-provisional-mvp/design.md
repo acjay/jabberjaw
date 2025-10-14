@@ -544,22 +544,103 @@ interface ServiceConfig {
 
 ## Testing Strategy
 
-### Unit Testing Approach
+### Focused Testing Approach
+
+We use a **focused testing pattern** that emphasizes direct controller and service testing with minimal mocking. This approach provides better test clarity, maintainability, and faster execution.
+
+#### Controller Testing Pattern
 
 ```typescript
-// Example service test structure
-describe("StoryGenerationService", () => {
-  let service: StoryGenerationService;
-  let mockLLMService: MockLLMService;
-  let mockStorageService: MockStoryStorageService;
+// Direct controller testing with focused stubbing
+describe("StoryController", () => {
+  let controller: StoryController;
+  let mockService: StoryService;
 
   beforeEach(() => {
-    mockLLMService = new MockLLMService();
-    mockStorageService = new MockStoryStorageService();
+    // Create empty mock service - no pre-configured stubs
+    mockService = {} as StoryService;
+    controller = new StoryController(mockService);
+  });
+
+  describe("generateContent", () => {
+    it("should generate content with text description input", async () => {
+      // Stub only what this specific test needs
+      stub(mockService, "generateContent", () =>
+        Promise.resolve({
+          id: "test-content-id-123",
+          content: "Mock generated story content",
+          estimatedDuration: 180,
+          contentStyle: ContentStyle.MIXED,
+          generatedAt: new Date().toISOString(),
+        })
+      );
+
+      const requestBody = {
+        input: { description: "The town of Princeton, NJ" },
+        targetDuration: 180,
+        contentStyle: ContentStyle.HISTORICAL,
+      };
+
+      const result = await controller.generateContent(requestBody);
+
+      assertExists(result.id);
+      assertExists(result.content);
+      assertEquals(typeof result.content, "string");
+      assertEquals(typeof result.estimatedDuration, "number");
+    });
+
+    it("should throw HttpException for invalid request body", async () => {
+      // No stub needed - validation happens before service call
+      const requestBody = { input: null };
+
+      await assertRejects(
+        () => controller.generateContent(requestBody),
+        HttpException,
+        "Invalid content request"
+      );
+    });
+  });
+});
+```
+
+#### Service Testing Pattern
+
+```typescript
+// Service tests with focused mocking of dependencies
+describe("StoryGenerationService", () => {
+  let service: StoryGenerationService;
+  let mockLLMService: LLMService;
+  let mockStorageService: StoryStorageService;
+
+  beforeEach(() => {
+    mockLLMService = {} as LLMService;
+    mockStorageService = {} as StoryStorageService;
     service = new StoryGenerationService(mockLLMService, mockStorageService);
   });
 
   it("should generate story seeds for text input", async () => {
+    // Stub only the methods this test uses
+    stub(mockLLMService, "generateStorySeeds", () =>
+      Promise.resolve([
+        {
+          storyId: "mock-story-1",
+          storyTitle: "Historic Town Center",
+          storySummary: "A fascinating look at Princeton's colonial history...",
+          location: {
+            latitude: 40.3573,
+            longitude: -74.6672,
+            timestamp: new Date(),
+          },
+          subject: "history",
+          sources: ["mock"],
+          poiReferences: ["test-poi-1"],
+          generatedAt: new Date(),
+        },
+      ])
+    );
+
+    stub(mockStorageService, "storeStorySeed", () => Promise.resolve());
+
     const input: StoryInput = {
       type: "text",
       data: "The town of Princeton, NJ",
@@ -573,139 +654,180 @@ describe("StoryGenerationService", () => {
     const result = await service.generateStorySeeds(input);
 
     assertEquals(Array.isArray(result), true);
-    assertEquals(result.length > 0, true);
-    assertEquals(typeof result[0].storyTitle, "string");
-    assertEquals(typeof result[0].storySummary, "string");
-  });
-
-  it("should expand story seed to full story", async () => {
-    const storyId = "test-story-id";
-    const result = await service.expandStory(storyId);
-
-    assertEquals(typeof result.content, "string");
-    assertEquals(result.estimatedDuration > 0, true);
-  });
-
-  it("should use cached story seeds when available", async () => {
-    // Test story seed caching behavior
-  });
-
-  it("should use cached full story when available", async () => {
-    // Test full story caching behavior
+    assertEquals(result.length, 1);
+    assertEquals(result[0].storyTitle, "Historic Town Center");
   });
 });
 ```
 
 ### Integration Testing
 
-```typescript
-// E2E test for journey endpoints
-describe("Journey API", () => {
-  let app: DanetApplication;
-
-  beforeAll(async () => {
-    app = new DanetApplication();
-    await app.init(AppModule);
-    await app.listen(3001);
-  });
-
-  it("should process location and return story seeds", async () => {
-    const response = await fetch(
-      "http://localhost:3001/api/story-seeds-for-location",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          latitude: 40.3573,
-          longitude: -74.6672,
-        }),
-      }
-    );
-
-    assertEquals(response.status, 200);
-    const data = await response.json();
-    assertEquals(Array.isArray(data.storySeeds), true);
-    assertEquals(data.storySeeds.length > 0, true);
-    assertEquals(typeof data.storySeeds[0].storyId, "string");
-    assertEquals(typeof data.storySeeds[0].storyTitle, "string");
-    assertEquals(typeof data.storySeeds[0].storySummary, "string");
-  });
-
-  it("should retrieve full story content", async () => {
-    // First generate story seeds
-    const seedsResponse = await fetch(
-      "http://localhost:3001/api/story-seeds-for-location",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          latitude: 40.3573,
-          longitude: -74.6672,
-        }),
-      }
-    );
-    const seedsData = await seedsResponse.json();
-    const storyId = seedsData.storySeeds[0].storyId;
-
-    // Then retrieve full story
-    const storyResponse = await fetch(
-      `http://localhost:3001/api/story/${storyId}`
-    );
-    assertEquals(storyResponse.status, 200);
-    const storyData = await storyResponse.json();
-    assertEquals(typeof storyData.storyId, "string");
-    assertEquals(typeof storyData.content, "string");
-    assertEquals(typeof storyData.estimatedDuration, "number");
-  });
-});
-```
-
-### Mock Services for Testing
+Integration tests verify that multiple components work together correctly by testing controllers with their real dependencies:
 
 ```typescript
-@Injectable()
-export class MockLLMService implements LLMService {
-  async generateStorySeeds(prompt: string): Promise<StorySeed[]> {
-    // Return deterministic mock story seeds for testing
-    return [
-      {
-        storyId: "mock-story-1",
-        storyTitle: "Historic Town Center",
-        storySummary: `Mock story summary for: ${prompt.substring(0, 30)}...`,
+describe("Journey Integration", () => {
+  let journeyController: JourneyController;
+  let poiService: POIDiscoveryService;
+  let storyService: StoryGenerationService;
+
+  beforeEach(() => {
+    // Use real services with stubbed external dependencies
+    poiService = {} as POIDiscoveryService;
+    storyService = {} as StoryGenerationService;
+    journeyController = new JourneyController(poiService, storyService);
+  });
+
+  it("should coordinate POI discovery and story generation", async () => {
+    // Stub the services to return realistic data
+    stub(poiService, "identifyPOIs", () =>
+      Promise.resolve([
+        {
+          id: "poi-1",
+          name: "Princeton University",
+          category: POICategory.INSTITUTION,
+          location: {
+            latitude: 40.3573,
+            longitude: -74.6672,
+            timestamp: new Date(),
+          },
+          description: "Historic Ivy League university",
+          source: "overpass",
+        },
+      ])
+    );
+
+    stub(storyService, "generateStorySeeds", () =>
+      Promise.resolve([
+        {
+          storyId: "story-1",
+          storyTitle: "Princeton University's Legacy",
+          storySummary:
+            "Founded in 1746, Princeton University has shaped American education...",
+          location: {
+            latitude: 40.3573,
+            longitude: -74.6672,
+            timestamp: new Date(),
+          },
+          subject: "education",
+          sources: ["historical records"],
+          poiReferences: ["poi-1"],
+          generatedAt: new Date(),
+        },
+      ])
+    );
+
+    const request = {
+      latitude: 40.3573,
+      longitude: -74.6672,
+    };
+
+    const result = await journeyController.generateStorySeedsForLocation(
+      request
+    );
+
+    // Verify the integration worked correctly
+    assertEquals(Array.isArray(result.storySeeds), true);
+    assertEquals(result.storySeeds.length, 1);
+    assertEquals(
+      result.storySeeds[0].storyTitle,
+      "Princeton University's Legacy"
+    );
+    assertEquals(Array.isArray(result.pois), true);
+    assertEquals(result.pois.length, 1);
+    assertEquals(result.pois[0].name, "Princeton University");
+  });
+
+  it("should handle story expansion workflow", async () => {
+    stub(storyService, "expandStory", () =>
+      Promise.resolve({
+        storyId: "story-1",
+        storyTitle: "Princeton University's Legacy",
+        storySummary:
+          "Founded in 1746, Princeton University has shaped American education...",
+        content:
+          "In the heart of New Jersey lies Princeton University, a beacon of academic excellence that has illuminated minds for nearly three centuries...",
         location: {
           latitude: 40.3573,
           longitude: -74.6672,
           timestamp: new Date(),
         },
-        subject: "history",
-        sources: ["mock"],
-        poiReferences: ["test-poi-1"],
+        subject: "education",
+        sources: ["historical records"],
+        poiReferences: ["poi-1"],
         generatedAt: new Date(),
-      },
-    ];
-  }
+        estimatedDuration: 240,
+        expandedAt: new Date(),
+      })
+    );
 
-  async expandStorySeed(storySeed: StorySeed): Promise<string> {
-    return `Mock expanded narrative for "${storySeed.storyTitle}": ${storySeed.storySummary} This is the full story content that would be generated by the LLM service.`;
-  }
-}
+    const result = await journeyController.getStory("story-1");
 
-@Injectable()
-export class MockPOIDiscoveryService implements POIDiscoveryService {
-  async identifyPOIs(location: LocationData): Promise<PointOfInterest[]> {
-    // Return predictable test POIs
-    return [
-      {
-        id: "test-poi-1",
-        name: "Test Location",
-        category: POICategory.TOWN,
-        location,
-        source: "manual",
-      },
-    ];
-  }
-}
+    assertEquals(result.storyId, "story-1");
+    assertEquals(typeof result.content, "string");
+    assertEquals(result.estimatedDuration, 240);
+    assertExists(result.expandedAt);
+  });
+});
 ```
+
+**Integration Test Characteristics:**
+
+- **Real Component Interaction**: Tests how controllers coordinate with services
+- **Stubbed External Dependencies**: Mock external APIs but use real internal logic
+- **End-to-End Workflows**: Test complete user journeys through the system
+- **Realistic Data**: Use data that resembles actual API responses
+
+**Benefits of Manual Server Approach:**
+
+- **No server management in tests**: Tests focus on behavior, not infrastructure
+- **Faster test execution**: No server startup/shutdown overhead
+- **Real environment testing**: Tests against actual running server
+- **Better debugging**: Can inspect server logs while tests run
+- **Prevents port conflicts**: No random port allocation needed
+
+### Testing Principles
+
+1. **Direct Testing**: Test controllers and services directly, never through HTTP
+2. **Focused Stubbing**: Each test stubs only what it needs
+3. **No Mock Classes**: Use Deno's `stub()` function instead of elaborate mock implementations
+4. **Automatic Cleanup**: Deno handles stub restoration automatically
+5. **Clear Intent**: Each test clearly shows expected behavior and dependencies
+6. **No Server Creation**: Tests never create servers or make HTTP requests
+
+### Test Organization
+
+```
+src/
+├── story/
+│   ├── story.controller.ts
+│   ├── story.controller.test.ts          # Direct controller tests
+│   ├── services/
+│   │   ├── story.service.ts
+│   │   ├── story.service.test.ts         # Service unit tests
+│   │   ├── llm.service.ts
+│   │   └── llm.service.test.ts
+├── poi-discovery/
+│   ├── poi-discovery.controller.ts
+│   ├── poi-discovery.controller.test.ts  # Direct controller tests
+│   └── services/
+│       ├── poi-identification.service.ts
+│       └── poi-identification.service.test.ts
+└── journey/
+    ├── journey.controller.ts
+    ├── journey.controller.test.ts        # Direct controller tests
+    ├── journey.service.ts
+    ├── journey.service.test.ts           # Service unit tests
+    └── journey.integration.test.ts       # Integration tests
+```
+
+### Benefits of This Approach
+
+- **Faster Tests**: Direct method calls vs HTTP requests
+- **Better Isolation**: Each test is completely independent
+- **Clearer Failures**: When tests fail, it's obvious what went wrong
+- **Easier Debugging**: No server setup or network issues to troubleshoot
+- **Maintainable**: No complex mock classes to keep in sync
+- **Focused**: Each test shows exactly what behavior it's verifying
 
 ## Development Environment Setup
 

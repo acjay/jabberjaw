@@ -1,13 +1,10 @@
 import { Injectable } from "@danet/core";
-import { FetchHttpClient } from "../fetch-http-client.ts";
 
 /**
  * Client for Google Maps APIs (Places, Geocoding, Roads)
  */
 @Injectable()
 export class GoogleMapsClient {
-  constructor(private readonly httpClient: FetchHttpClient) {}
-
   /**
    * Make a request to Google Places API
    */
@@ -24,7 +21,7 @@ export class GoogleMapsClient {
       if (value) url.searchParams.set(key, value);
     });
 
-    const response = await this.httpClient.get(url.toString());
+    const response = await fetch(url.toString());
 
     if (!response.ok) {
       throw new Error(
@@ -48,7 +45,7 @@ export class GoogleMapsClient {
       if (value) url.searchParams.set(key, value);
     });
 
-    const response = await this.httpClient.get(url.toString());
+    const response = await fetch(url.toString());
 
     if (!response.ok) {
       throw new Error(
@@ -72,7 +69,7 @@ export class GoogleMapsClient {
       if (value) url.searchParams.set(key, value);
     });
 
-    const response = await this.httpClient.get(url.toString());
+    const response = await fetch(url.toString());
 
     if (!response.ok) {
       throw new Error(
@@ -92,7 +89,7 @@ export class GoogleMapsClient {
       if (value) url.searchParams.set(key, value);
     });
 
-    const response = await this.httpClient.get(url.toString());
+    const response = await fetch(url.toString());
 
     if (!response.ok) {
       throw new Error(
@@ -112,7 +109,7 @@ export class GoogleMapsClient {
       if (value) url.searchParams.set(key, value);
     });
 
-    const response = await this.httpClient.get(url.toString());
+    const response = await fetch(url.toString());
 
     if (!response.ok) {
       throw new Error(
@@ -138,7 +135,7 @@ export class GoogleMapsClient {
       if (value) url.searchParams.set(key, value);
     });
 
-    const response = await this.httpClient.get(url.toString());
+    const response = await fetch(url.toString());
 
     if (!response.ok) {
       throw new Error(

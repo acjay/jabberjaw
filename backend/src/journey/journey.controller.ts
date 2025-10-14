@@ -20,7 +20,7 @@ export class JourneyController {
 
   @Post("story-seeds-for-location")
   async processLocation(
-    @Body() body: Record<string, unknown>
+    @Body() body: LocationRequestDto
   ): Promise<LocationResponseDto> {
     try {
       // Validate and create DTO

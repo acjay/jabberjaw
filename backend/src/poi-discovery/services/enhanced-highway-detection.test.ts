@@ -1,21 +1,123 @@
 import { assert, assertEquals, assertExists } from "@std/assert";
 import { beforeEach, describe, it } from "@std/testing/bdd";
+import { stub } from "@std/testing/mock";
 import { POIIdentificationService } from "./poi-identification.service.ts";
+import { OverpassClient } from "../../shared/clients/overpass-client.ts";
+import { GoogleMapsClient } from "../../shared/clients/google-maps-client.ts";
+import { NominatimClient } from "../../shared/clients/nominatim-client.ts";
 import { LocationData } from "../../models/location.model.ts";
 import { POICategory } from "../../models/poi.model.ts";
-import { TestUtils } from "../../shared/index.ts";
 
 describe("Enhanced Highway Detection (Method 4)", () => {
   let service: POIIdentificationService;
-  let mockClients: ReturnType<typeof TestUtils.createMockApiClients>;
+  let mockOverpassClient: OverpassClient;
+  let mockGoogleMapsClient: GoogleMapsClient;
+  let mockNominatimClient: NominatimClient;
 
   beforeEach(() => {
-    TestUtils.setupTestEnvironment();
-    mockClients = TestUtils.createMockApiClients();
+    // Create mock clients
+    mockOverpassClient = new OverpassClient();
+    mockGoogleMapsClient = new GoogleMapsClient();
+    mockNominatimClient = new NominatimClient();
+
+    // Stub the client methods with mock responses that return highway data
+    stub(mockOverpassClient, "query", () =>
+      Promise.resolve({
+        elements: [
+          {
+            type: "way",
+            id: 123456,
+            tags: {
+              highway: "motorway",
+              name: "Interstate 5",
+              ref: "I-5",
+            },
+            geometry: [
+              { lat: 40.7128, lon: -74.006 }, // Near test location
+              { lat: 40.7129, lon: -74.0061 },
+              { lat: 40.713, lon: -74.0062 },
+            ],
+          },
+          {
+            type: "way",
+            id: 789012,
+            tags: {
+              highway: "trunk",
+              name: "US Highway 1",
+              ref: "US-1",
+            },
+            geometry: [
+              { lat: 40.7125, lon: -74.0055 },
+              { lat: 40.7126, lon: -74.0056 },
+            ],
+          },
+        ],
+      })
+    );
+
+    // Mock Google Places to return some results so it doesn't fall back to mock data
+    stub(mockGoogleMapsClient, "placesNearbySearch", () =>
+      Promise.resolve({
+        results: [
+          {
+            place_id: "test_place_1",
+            name: "Test Museum",
+            types: ["museum", "tourist_attraction"],
+            geometry: {
+              location: {
+                lat: 40.713,
+                lng: -74.0065,
+              },
+            },
+            vicinity: "New York, NY",
+            rating: 4.2,
+          },
+        ],
+      })
+    );
+
+    // Mock geocoding to return municipality data
+    stub(mockGoogleMapsClient, "geocode", () =>
+      Promise.resolve({
+        results: [
+          {
+            address_components: [
+              {
+                long_name: "New York",
+                short_name: "NYC",
+                types: ["locality", "political"],
+              },
+              {
+                long_name: "New York County",
+                short_name: "New York County",
+                types: ["administrative_area_level_2", "political"],
+              },
+              {
+                long_name: "New York",
+                short_name: "NY",
+                types: ["administrative_area_level_1", "political"],
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    stub(mockNominatimClient, "reverse", () =>
+      Promise.resolve({
+        address: {
+          city: "New York",
+          county: "New York County",
+          state: "New York",
+          country: "United States",
+        },
+      })
+    );
+
     service = new POIIdentificationService(
-      mockClients.overpassClient,
-      mockClients.googleMapsClient,
-      mockClients.nominatimClient
+      mockOverpassClient,
+      mockGoogleMapsClient,
+      mockNominatimClient
     );
   });
 

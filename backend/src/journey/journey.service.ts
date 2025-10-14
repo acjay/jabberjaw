@@ -5,17 +5,14 @@ import {
   StoryResponseDto,
 } from "./dto/index.ts";
 import { POIIdentificationService } from "../poi-discovery/services/poi-identification.service.ts";
-import { ContentGenerationService } from "../content-generation/services/content-generation.service.ts";
+import { StoryService } from "../story/services/story.service.ts";
 import { LocationData } from "../models/location.model.ts";
 import {
   ContentRequestDto,
   ContentStyle,
-} from "../content-generation/dto/content-request.dto.ts";
-import {
-  StructuredPOIDto,
-  POIType,
-} from "../content-generation/dto/structured-poi.dto.ts";
-import { TextPOIDescriptionDto } from "../content-generation/dto/text-poi-description.dto.ts";
+} from "../story/dto/content-request.dto.ts";
+import { StructuredPOIDto, POIType } from "../story/dto/structured-poi.dto.ts";
+import { TextPOIDescriptionDto } from "../story/dto/text-poi-description.dto.ts";
 
 interface CachedJourney {
   storyId: string;
@@ -35,7 +32,7 @@ export class JourneyService {
 
   constructor(
     private poiService: POIIdentificationService,
-    private contentService: ContentGenerationService
+    private contentService: StoryService
   ) {}
 
   async processLocation(

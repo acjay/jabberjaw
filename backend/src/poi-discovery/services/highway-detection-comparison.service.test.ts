@@ -1,31 +1,87 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { beforeEach, describe, it } from "@std/testing/bdd";
+import { stub } from "@std/testing/mock";
 import { HighwayDetectionComparisonService } from "./highway-detection-comparison.service.ts";
 import { POIIdentificationService } from "./poi-identification.service.ts";
 import { GoogleRoadsService } from "./google-roads.service.ts";
+import { OverpassClient } from "../../shared/clients/overpass-client.ts";
+import { GoogleMapsClient } from "../../shared/clients/google-maps-client.ts";
+import { NominatimClient } from "../../shared/clients/nominatim-client.ts";
 import { LocationData } from "../../models/location.model.ts";
-import { TestUtils } from "../../shared/index.ts";
 
 describe("HighwayDetectionComparisonService", () => {
   let service: HighwayDetectionComparisonService;
   let poiService: POIIdentificationService;
   let googleRoadsService: GoogleRoadsService;
-  let mockClients: ReturnType<typeof TestUtils.createMockApiClients>;
+  let mockOverpassClient: OverpassClient;
+  let mockGoogleMapsClient: GoogleMapsClient;
+  let mockNominatimClient: NominatimClient;
 
   beforeEach(() => {
-    TestUtils.setupTestEnvironment();
-    mockClients = TestUtils.createMockApiClients();
+    // Create mock clients
+    mockOverpassClient = new OverpassClient();
+    mockGoogleMapsClient = new GoogleMapsClient();
+    mockNominatimClient = new NominatimClient();
+
+    // Stub the client methods with mock responses
+    stub(mockOverpassClient, "query", () =>
+      Promise.resolve({
+        elements: [
+          {
+            type: "way",
+            id: 123456,
+            tags: {
+              highway: "motorway",
+              name: "Interstate 5",
+              ref: "I-5",
+            },
+            geometry: [
+              { lat: 37.7749, lon: -122.4194 },
+              { lat: 37.775, lon: -122.4195 },
+            ],
+          },
+        ],
+      })
+    );
+
+    stub(mockGoogleMapsClient, "snapToRoads", () =>
+      Promise.resolve({
+        snappedPoints: [
+          {
+            location: {
+              latitude: 37.7749,
+              longitude: -122.4194,
+            },
+            placeId: "test_road_place_id",
+          },
+        ],
+      })
+    );
+
+    stub(mockGoogleMapsClient, "nearestRoads", () =>
+      Promise.resolve({
+        snappedPoints: [
+          {
+            location: {
+              latitude: 37.7749,
+              longitude: -122.4194,
+            },
+            placeId: "test_road_place_id",
+          },
+        ],
+      })
+    );
 
     poiService = new POIIdentificationService(
-      mockClients.overpassClient,
-      mockClients.googleMapsClient,
-      mockClients.nominatimClient
+      mockOverpassClient,
+      mockGoogleMapsClient,
+      mockNominatimClient
     );
-    googleRoadsService = new GoogleRoadsService(mockClients.googleMapsClient);
+    googleRoadsService = new GoogleRoadsService(mockGoogleMapsClient);
     service = new HighwayDetectionComparisonService(
       poiService,
       googleRoadsService,
-      mockClients.overpassClient
+      mockOverpassClient
     );
   });
 
@@ -104,7 +160,9 @@ describe("HighwayDetectionComparisonService", () => {
       const result = await service.compareDetectionMethods(testLocation);
 
       // Each method should have processing time
-      for (const [methodName, methodResult] of Object.entries(result.methods)) {
+      for (const [_methodName, methodResult] of Object.entries(
+        result.methods
+      )) {
         assertEquals(typeof methodResult.processingTime, "number");
         assertEquals(methodResult.processingTime >= 0, true);
 
@@ -133,7 +191,9 @@ describe("HighwayDetectionComparisonService", () => {
       assertExists(result.methods.enhancedOverpass);
 
       // Methods that fail should have error field or empty results
-      for (const [methodName, methodResult] of Object.entries(result.methods)) {
+      for (const [_methodName, methodResult] of Object.entries(
+        result.methods
+      )) {
         // Should have either highways or error
         const hasResults = Array.isArray(methodResult.highways);
         const hasError = typeof methodResult.error === "string";

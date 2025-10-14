@@ -1,28 +1,46 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { beforeEach, describe, it } from "@std/testing/bdd";
-import { ContentGenerationService } from "./content-generation.service.ts";
+import { stub } from "@std/testing/mock";
+import { StoryService } from "./story.service.ts";
 import { MockLLMService } from "./llm.service.ts";
 import { OpenAILLMService } from "./openai-llm.service.ts";
+import { OpenAIClient } from "../../shared/clients/openai-client.ts";
 import { ContentStorageService } from "./content-storage.service.ts";
 import { ContentRequestDto, ContentStyle } from "../dto/index.ts";
 import { POIType } from "../dto/structured-poi.dto.ts";
-import { TestUtils } from "../../shared/test-utils.ts";
 
-describe("ContentGenerationService", () => {
-  let service: ContentGenerationService;
+describe("StoryService", () => {
+  let service: StoryService;
   let llmService: MockLLMService;
   let storageService: ContentStorageService;
 
   beforeEach(() => {
     llmService = new MockLLMService();
     storageService = new ContentStorageService();
-    const { mockHttpClient } = TestUtils.createMockEnvironment();
-    const openAIService = new OpenAILLMService(mockHttpClient.openaiClient);
-    service = new ContentGenerationService(
-      llmService,
-      openAIService,
-      storageService
+
+    // Create mock OpenAI client
+    const mockOpenAIClient = new OpenAIClient();
+    stub(mockOpenAIClient, "chatCompletion", () =>
+      Promise.resolve({
+        choices: [
+          {
+            message: {
+              content:
+                "This is a mock response from OpenAI for testing purposes. It provides engaging travel content about the requested location with historical context, cultural significance, and interesting facts that would be perfect for road trip travelers. The content is designed to be informative yet entertaining, suitable for a 3-minute podcast-style narration.",
+            },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 150,
+          completion_tokens: 200,
+          total_tokens: 350,
+        },
+      })
     );
+
+    const openAIService = new OpenAILLMService(mockOpenAIClient);
+    service = new StoryService(llmService, openAIService, storageService);
   });
 
   describe("generateContent", () => {
@@ -103,7 +121,7 @@ describe("ContentGenerationService", () => {
     it("should return service statistics", () => {
       const stats = service.getStats();
 
-      assertEquals(stats.service, "content-generation");
+      assertEquals(stats.service, "story");
       assertEquals(stats.status, "healthy");
       assertExists(stats.storage);
       assertEquals(typeof stats.storage.total, "number");

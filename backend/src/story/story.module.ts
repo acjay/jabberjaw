@@ -1,7 +1,7 @@
 import { Module } from "@danet/core";
-import { ContentGenerationController } from "./content-generation.controller.ts";
+import { StoryController } from "./story.controller.ts";
 import {
-  ContentGenerationService,
+  StoryService,
   ContentStorageService,
   MockLLMService,
   OpenAILLMService,
@@ -10,12 +10,12 @@ import { SharedModule } from "../shared/shared.module.ts";
 
 @Module({
   imports: [SharedModule],
-  controllers: [ContentGenerationController],
+  controllers: [StoryController],
   injectables: [
-    ContentGenerationService,
+    StoryService,
     ContentStorageService,
     MockLLMService,
     OpenAILLMService,
   ],
 })
-export class ContentGenerationModule {}
+export class StoryModule {}

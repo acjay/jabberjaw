@@ -58,7 +58,7 @@ deno task fmt:check    # Check formatting
 - E2E tests in dedicated `test/` directory
 - BDD-style testing with `describe`/`it` blocks
 - Parallel test execution enabled
-- Mock services for external dependencies (OpenAI fallback)
+- Mock services for external dependencies (OpenAI fallback). Use simple Deno test constructs like stubs and spies, where possible. Avoid creating test utilities.
 
 ## Development methodology
 

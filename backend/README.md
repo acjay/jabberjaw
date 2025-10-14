@@ -50,7 +50,7 @@ deno task start
 deno task test
 
 # Run specific test file
-deno test --allow-net --allow-read --allow-env src/content-generation/services/openai-llm.service.test.ts
+deno test --allow-net --allow-read --allow-env src/story/services/openai-llm.service.test.ts
 ```
 
 ## API Endpoints
@@ -165,10 +165,10 @@ Approximate costs per 1000 requests (assuming ~500 words per response):
 ```
 backend/
 ├── src/
-│   ├── content-generation/     # Content generation module
+│   ├── story/     # Content generation module
 │   │   ├── dto/               # Data transfer objects
 │   │   ├── services/          # Business logic services
-│   │   └── content-generation.controller.ts
+│   │   └── story.controller.ts
 │   ├── models/                # Data models
 │   └── main.ts               # Application entry point
 ├── test/                     # E2E tests
@@ -180,7 +180,7 @@ backend/
 1. Create a new service extending `LLMService`
 2. Implement `generateContent()` and `generatePrompt()` methods
 3. Add to the module's injectables
-4. Update the service selection logic in `ContentGenerationService`
+4. Update the service selection logic in `StoryService`
 
 ## Testing with Real OpenAI API
 
@@ -191,5 +191,5 @@ To test with a real OpenAI API key:
 3. Run the test (note: this will make actual API calls and incur costs)
 
 ```bash
-deno test --allow-net --allow-read --allow-env src/content-generation/services/openai-llm.service.test.ts
+deno test --allow-net --allow-read --allow-env src/story/services/openai-llm.service.test.ts
 ```

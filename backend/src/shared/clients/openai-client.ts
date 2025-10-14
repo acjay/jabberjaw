@@ -1,5 +1,4 @@
 import { Injectable } from "@danet/core";
-import { FetchHttpClient } from "../fetch-http-client.ts";
 
 /**
  * Client for OpenAI API
@@ -7,8 +6,6 @@ import { FetchHttpClient } from "../fetch-http-client.ts";
 @Injectable()
 export class OpenAIClient {
   private readonly baseUrl = "https://api.openai.com/v1";
-
-  constructor(private readonly httpClient: FetchHttpClient) {}
 
   /**
    * Make a chat completion request
@@ -25,17 +22,14 @@ export class OpenAIClient {
     },
     apiKey: string
   ): Promise<any> {
-    const response = await this.httpClient.post(
-      `${this.baseUrl}/chat/completions`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(params),
-      }
-    );
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(params),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -62,7 +56,7 @@ export class OpenAIClient {
     },
     apiKey: string
   ): Promise<any> {
-    const response = await this.httpClient.post(`${this.baseUrl}/completions`, {
+    const response = await fetch(`${this.baseUrl}/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

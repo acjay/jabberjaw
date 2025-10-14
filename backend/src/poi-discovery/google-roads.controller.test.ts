@@ -1,132 +1,73 @@
-import { assertEquals, assertRejects } from '@std/assert';
-import { describe, it, beforeEach, afterEach } from '@std/testing/bdd';
-import { GoogleRoadsController } from './google-roads.controller.ts';
-import { GoogleRoadsService } from './services/google-roads.service.ts';
-import { HttpException } from '@danet/core';
+import { assertEquals, assertRejects } from "@std/assert";
+import { describe, it, beforeEach } from "@std/testing/bdd";
+import { GoogleRoadsController } from "./google-roads.controller.ts";
+import { GoogleRoadsService } from "./services/google-roads.service.ts";
+import { HttpException } from "@danet/core";
+import { stub } from "@std/testing/mock";
 
-// Mock GoogleRoadsService for testing
-class MockGoogleRoadsService {
-  private configured = true;
-  private connectionTestResult = true;
-
-  setConfigured(configured: boolean) {
-    this.configured = configured;
-  }
-
-  setConnectionTestResult(result: boolean) {
-    this.connectionTestResult = result;
-  }
-
-  isConfigured(): boolean {
-    return this.configured;
-  }
-
-  async testConnection(): Promise<boolean> {
-    return this.connectionTestResult;
-  }
-
-  async snapToRoads(location: any) {
-    if (!this.configured) {
-      throw new Error('Google Roads API key not configured');
-    }
-
-    // Mock successful response
-    return {
-      roadName: 'Broadway',
-      placeId: 'ChIJmQJIxlVYwokRLgeuocVOGVU',
-      snappedLocation: {
-        latitude: location.latitude,
-        longitude: location.longitude,
-      },
-      originalLocation: {
-        latitude: location.latitude,
-        longitude: location.longitude,
-      },
-      distanceFromOriginal: 0,
-      confidence: 1.0,
-    };
-  }
-
-  async findNearestRoads(location: any) {
-    if (!this.configured) {
-      throw new Error('Google Roads API key not configured');
-    }
-
-    // Mock successful response with multiple roads
-    return [
-      {
-        roadName: 'Broadway',
-        placeId: 'ChIJmQJIxlVYwokRLgeuocVOGVU',
-        snappedLocation: {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        },
-        originalLocation: {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        },
-        distanceFromOriginal: 0,
-        confidence: 1.0,
-      },
-      {
-        roadName: '7th Avenue',
-        placeId: 'ChIJmQJIxlVYwokRLgeuocVOGVV',
-        snappedLocation: {
-          latitude: location.latitude + 0.001,
-          longitude: location.longitude,
-        },
-        originalLocation: {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        },
-        distanceFromOriginal: 111,
-        confidence: 0.89,
-      },
-    ];
-  }
-}
-
-describe('GoogleRoadsController', () => {
+describe("GoogleRoadsController", () => {
   let controller: GoogleRoadsController;
-  let mockService: MockGoogleRoadsService;
+  let mockService: GoogleRoadsService;
 
   beforeEach(() => {
-    mockService = new MockGoogleRoadsService();
-    controller = new GoogleRoadsController(mockService as any);
+    mockService = {} as GoogleRoadsService;
+    controller = new GoogleRoadsController(mockService);
   });
 
-  describe('testConnection', () => {
-    it('should return configuration and connection status', async () => {
+  describe("testConnection", () => {
+    it("should return configuration and connection status", async () => {
+      stub(mockService, "isConfigured", () => true);
+      stub(mockService, "testConnection", () => Promise.resolve(true));
+
       const result = await controller.testConnection();
 
       assertEquals(result.configured, true);
       assertEquals(result.connectionTest, true);
-      assertEquals(typeof result.timestamp, 'string');
+      assertEquals(typeof result.timestamp, "string");
     });
 
-    it('should handle unconfigured service', async () => {
-      mockService.setConfigured(false);
+    it("should handle unconfigured service", async () => {
+      stub(mockService, "isConfigured", () => false);
 
       const result = await controller.testConnection();
 
       assertEquals(result.configured, false);
       assertEquals(result.connectionTest, false);
-      assertEquals(typeof result.timestamp, 'string');
+      assertEquals(typeof result.timestamp, "string");
     });
 
-    it('should handle connection test failure', async () => {
-      mockService.setConnectionTestResult(false);
+    it("should handle connection test failure", async () => {
+      stub(mockService, "isConfigured", () => true);
+      stub(mockService, "testConnection", () => Promise.resolve(false));
 
       const result = await controller.testConnection();
 
       assertEquals(result.configured, true);
       assertEquals(result.connectionTest, false);
-      assertEquals(typeof result.timestamp, 'string');
+      assertEquals(typeof result.timestamp, "string");
     });
   });
 
-  describe('snapToRoads', () => {
-    it('should successfully snap location to road', async () => {
+  describe("snapToRoads", () => {
+    it("should successfully snap location to road", async () => {
+      stub(mockService, "isConfigured", () => true);
+      stub(mockService, "snapToRoads", () =>
+        Promise.resolve({
+          roadName: "Broadway",
+          placeId: "ChIJmQJIxlVYwokRLgeuocVOGVU",
+          snappedLocation: {
+            latitude: 40.758,
+            longitude: -73.9855,
+          },
+          originalLocation: {
+            latitude: 40.758,
+            longitude: -73.9855,
+          },
+          distanceFromOriginal: 0,
+          confidence: 1.0,
+        })
+      );
+
       const requestBody = {
         latitude: 40.758,
         longitude: -73.9855,
@@ -136,12 +77,12 @@ describe('GoogleRoadsController', () => {
 
       assertEquals(result.location.latitude, requestBody.latitude);
       assertEquals(result.location.longitude, requestBody.longitude);
-      assertEquals(result.roadInfo?.roadName, 'Broadway');
-      assertEquals(result.roadInfo?.placeId, 'ChIJmQJIxlVYwokRLgeuocVOGVU');
-      assertEquals(typeof result.timestamp, 'string');
+      assertEquals(result.roadInfo?.roadName, "Broadway");
+      assertEquals(result.roadInfo?.placeId, "ChIJmQJIxlVYwokRLgeuocVOGVU");
+      assertEquals(typeof result.timestamp, "string");
     });
 
-    it('should validate latitude range', async () => {
+    it("should validate latitude range", async () => {
       const requestBody = {
         latitude: 91, // Invalid latitude
         longitude: -73.9855,
@@ -150,11 +91,11 @@ describe('GoogleRoadsController', () => {
       await assertRejects(
         () => controller.snapToRoads(requestBody),
         HttpException,
-        'Invalid latitude',
+        "Invalid latitude"
       );
     });
 
-    it('should validate longitude range', async () => {
+    it("should validate longitude range", async () => {
       const requestBody = {
         latitude: 40.758,
         longitude: 181, // Invalid longitude
@@ -163,11 +104,11 @@ describe('GoogleRoadsController', () => {
       await assertRejects(
         () => controller.snapToRoads(requestBody),
         HttpException,
-        'Invalid longitude',
+        "Invalid longitude"
       );
     });
 
-    it('should handle missing latitude', async () => {
+    it("should handle missing latitude", async () => {
       const requestBody = {
         longitude: -73.9855,
       };
@@ -175,11 +116,11 @@ describe('GoogleRoadsController', () => {
       await assertRejects(
         () => controller.snapToRoads(requestBody),
         HttpException,
-        'Invalid latitude',
+        "Invalid latitude"
       );
     });
 
-    it('should handle missing longitude', async () => {
+    it("should handle missing longitude", async () => {
       const requestBody = {
         latitude: 40.758,
       };
@@ -187,12 +128,14 @@ describe('GoogleRoadsController', () => {
       await assertRejects(
         () => controller.snapToRoads(requestBody),
         HttpException,
-        'Invalid longitude',
+        "Invalid longitude"
       );
     });
 
-    it('should handle unconfigured API key', async () => {
-      mockService.setConfigured(false);
+    it("should handle unconfigured API key", async () => {
+      stub(mockService, "snapToRoads", () => {
+        throw new Error("API key not configured");
+      });
 
       const requestBody = {
         latitude: 40.758,
@@ -202,13 +145,47 @@ describe('GoogleRoadsController', () => {
       await assertRejects(
         () => controller.snapToRoads(requestBody),
         HttpException,
-        'Google Roads API is not configured',
+        "Google Roads API is not configured"
       );
     });
   });
 
-  describe('findNearestRoads', () => {
-    it('should successfully find nearest roads', async () => {
+  describe("findNearestRoads", () => {
+    it("should successfully find nearest roads", async () => {
+      stub(mockService, "isConfigured", () => true);
+      stub(mockService, "findNearestRoads", () =>
+        Promise.resolve([
+          {
+            roadName: "Broadway",
+            placeId: "ChIJmQJIxlVYwokRLgeuocVOGVU",
+            snappedLocation: {
+              latitude: 40.758,
+              longitude: -73.9855,
+            },
+            originalLocation: {
+              latitude: 40.758,
+              longitude: -73.9855,
+            },
+            distanceFromOriginal: 0,
+            confidence: 1.0,
+          },
+          {
+            roadName: "7th Avenue",
+            placeId: "ChIJmQJIxlVYwokRLgeuocVOGVV",
+            snappedLocation: {
+              latitude: 40.759,
+              longitude: -73.9855,
+            },
+            originalLocation: {
+              latitude: 40.758,
+              longitude: -73.9855,
+            },
+            distanceFromOriginal: 111,
+            confidence: 0.89,
+          },
+        ])
+      );
+
       const requestBody = {
         latitude: 40.758,
         longitude: -73.9855,
@@ -219,12 +196,12 @@ describe('GoogleRoadsController', () => {
       assertEquals(result.location.latitude, requestBody.latitude);
       assertEquals(result.location.longitude, requestBody.longitude);
       assertEquals(result.roads.length, 2);
-      assertEquals(result.roads[0].roadName, 'Broadway');
-      assertEquals(result.roads[1].roadName, '7th Avenue');
-      assertEquals(typeof result.timestamp, 'string');
+      assertEquals(result.roads[0].roadName, "Broadway");
+      assertEquals(result.roads[1].roadName, "7th Avenue");
+      assertEquals(typeof result.timestamp, "string");
     });
 
-    it('should validate latitude range', async () => {
+    it("should validate latitude range", async () => {
       const requestBody = {
         latitude: -91, // Invalid latitude
         longitude: -73.9855,
@@ -233,11 +210,11 @@ describe('GoogleRoadsController', () => {
       await assertRejects(
         () => controller.findNearestRoads(requestBody),
         HttpException,
-        'Invalid latitude',
+        "Invalid latitude"
       );
     });
 
-    it('should validate longitude range', async () => {
+    it("should validate longitude range", async () => {
       const requestBody = {
         latitude: 40.758,
         longitude: -181, // Invalid longitude
@@ -246,22 +223,24 @@ describe('GoogleRoadsController', () => {
       await assertRejects(
         () => controller.findNearestRoads(requestBody),
         HttpException,
-        'Invalid longitude',
+        "Invalid longitude"
       );
     });
 
-    it('should handle missing coordinates', async () => {
+    it("should handle missing coordinates", async () => {
       const requestBody = {};
 
       await assertRejects(
         () => controller.findNearestRoads(requestBody),
         HttpException,
-        'Invalid latitude',
+        "Invalid latitude"
       );
     });
 
-    it('should handle unconfigured API key', async () => {
-      mockService.setConfigured(false);
+    it("should handle unconfigured API key", async () => {
+      stub(mockService, "findNearestRoads", () => {
+        throw new Error("API key not configured");
+      });
 
       const requestBody = {
         latitude: 40.758,
@@ -271,7 +250,7 @@ describe('GoogleRoadsController', () => {
       await assertRejects(
         () => controller.findNearestRoads(requestBody),
         HttpException,
-        'Google Roads API is not configured',
+        "Google Roads API is not configured"
       );
     });
   });

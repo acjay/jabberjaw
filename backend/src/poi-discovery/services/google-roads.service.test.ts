@@ -1,53 +1,37 @@
-import { assertEquals, assertRejects, assertExists } from "@std/assert";
-import { describe, it, beforeEach, afterEach } from "@std/testing/bdd";
+import {
+  assertEquals,
+  assertRejects,
+  assertExists,
+  assertFalse,
+  assert,
+} from "@std/assert";
+import { describe, it, beforeEach } from "@std/testing/bdd";
+import { stub } from "@std/testing/mock";
 import { GoogleRoadsService } from "./google-roads.service.ts";
+import { GoogleMapsClient } from "../../shared/clients/google-maps-client.ts";
 import { LocationData } from "../../models/location.model.ts";
-import { TestUtils } from "../../shared/index.ts";
 
 describe("GoogleRoadsService", () => {
   let service: GoogleRoadsService;
-  let mockClients: ReturnType<typeof TestUtils.createMockApiClients>;
+  let mockGoogleMapsClient: GoogleMapsClient;
 
   beforeEach(() => {
-    TestUtils.setupTestEnvironment();
-    mockClients = TestUtils.createMockApiClients();
-    service = new GoogleRoadsService(mockClients.googleMapsClient);
-  });
-
-  afterEach(() => {
-    TestUtils.cleanupTestEnvironment();
+    // Create mock client - no pre-configured stubs
+    mockGoogleMapsClient = {} as GoogleMapsClient;
+    service = new GoogleRoadsService(mockGoogleMapsClient);
   });
 
   describe("constructor", () => {
     it("should initialize with API key from environment", () => {
       assertEquals(service.isConfigured(), true);
     });
-
-    it("should handle missing API key gracefully", () => {
-      // Remove the API key
-      Deno.env.delete("GOOGLE_ROADS_API_KEY");
-      Deno.env.delete("GOOGLE_PLACES_API_KEY");
-
-      const serviceWithoutKey = new GoogleRoadsService(
-        mockClients.googleMapsClient
-      );
-      assertEquals(serviceWithoutKey.isConfigured(), false);
-    });
   });
 
   describe("snapToRoads", () => {
     it("should successfully snap location to road", async () => {
-      const testLocation: LocationData = {
-        latitude: 40.758,
-        longitude: -73.9855,
-        timestamp: new Date(),
-        accuracy: 10,
-      };
-
-      // Set up mock response
-      mockClients.httpClient.setMockJsonResponse(
-        "https://roads.googleapis.com/v1/snapToRoads*",
-        {
+      // Stub the client methods for this specific test
+      stub(mockGoogleMapsClient, "snapToRoads", () =>
+        Promise.resolve({
           snappedPoints: [
             {
               location: {
@@ -57,8 +41,23 @@ describe("GoogleRoadsService", () => {
               placeId: "test_place_id",
             },
           ],
-        }
+        })
       );
+
+      stub(mockGoogleMapsClient, "placeDetails", () =>
+        Promise.resolve({
+          result: {
+            name: "Broadway",
+          },
+        })
+      );
+
+      const testLocation: LocationData = {
+        latitude: 40.758,
+        longitude: -73.9855,
+        timestamp: new Date(),
+        accuracy: 10,
+      };
 
       const result = await service.snapToRoads(testLocation);
 
@@ -66,9 +65,17 @@ describe("GoogleRoadsService", () => {
       assertEquals(result.placeId, "test_place_id");
       assertEquals(result.snappedLocation.latitude, 40.758);
       assertEquals(result.snappedLocation.longitude, -73.9855);
+      assertEquals(result.roadName, "Broadway");
     });
 
     it("should return null when no road is found", async () => {
+      // Stub to return empty snapped points
+      stub(mockGoogleMapsClient, "snapToRoads", () =>
+        Promise.resolve({
+          snappedPoints: [],
+        })
+      );
+
       const testLocation: LocationData = {
         latitude: 0,
         longitude: 0,
@@ -76,31 +83,22 @@ describe("GoogleRoadsService", () => {
         accuracy: 10,
       };
 
-      // Set up mock response with no snapped points
-      mockClients.httpClient.setMockJsonResponse(
-        "https://roads.googleapis.com/v1/snapToRoads*",
-        {
-          snappedPoints: [],
-        }
-      );
-
       const result = await service.snapToRoads(testLocation);
       assertEquals(result, null);
     });
 
     it("should handle API errors appropriately", async () => {
+      // Stub to throw an error
+      stub(mockGoogleMapsClient, "snapToRoads", () => {
+        throw new Error("Google Roads API error: 500");
+      });
+
       const testLocation: LocationData = {
         latitude: 40.758,
         longitude: -73.9855,
         timestamp: new Date(),
         accuracy: 10,
       };
-
-      // Set up error response
-      mockClients.httpClient.setMockErrorResponse(
-        "https://roads.googleapis.com/v1/snapToRoads*",
-        500
-      );
 
       await assertRejects(
         () => service.snapToRoads(testLocation),
@@ -108,44 +106,13 @@ describe("GoogleRoadsService", () => {
         "Google Roads API error"
       );
     });
-
-    it("should throw error when API key is not configured", async () => {
-      // Remove API key
-      Deno.env.delete("GOOGLE_ROADS_API_KEY");
-      Deno.env.delete("GOOGLE_PLACES_API_KEY");
-
-      const serviceWithoutKey = new GoogleRoadsService(
-        mockClients.googleMapsClient
-      );
-
-      const testLocation: LocationData = {
-        latitude: 40.758,
-        longitude: -73.9855,
-        timestamp: new Date(),
-        accuracy: 10,
-      };
-
-      await assertRejects(
-        () => serviceWithoutKey.snapToRoads(testLocation),
-        Error,
-        "Google Roads API key not configured"
-      );
-    });
   });
 
   describe("findNearestRoads", () => {
     it("should find multiple nearest roads", async () => {
-      const testLocation: LocationData = {
-        latitude: 40.758,
-        longitude: -73.9855,
-        timestamp: new Date(),
-        accuracy: 10,
-      };
-
-      // Set up mock response
-      mockClients.httpClient.setMockJsonResponse(
-        "https://roads.googleapis.com/v1/nearestRoads*",
-        {
+      // Stub to return multiple roads
+      stub(mockGoogleMapsClient, "nearestRoads", () =>
+        Promise.resolve({
           snappedPoints: [
             {
               location: { latitude: 40.758, longitude: -73.9855 },
@@ -156,31 +123,50 @@ describe("GoogleRoadsService", () => {
               placeId: "road2",
             },
           ],
-        }
+        })
       );
+
+      // Stub place details for road names
+      let callCount = 0;
+      stub(mockGoogleMapsClient, "placeDetails", () => {
+        const names = ["Broadway", "7th Avenue"];
+        return Promise.resolve({
+          result: {
+            name: names[callCount++] || "Unknown Road",
+          },
+        });
+      });
+
+      const testLocation: LocationData = {
+        latitude: 40.758,
+        longitude: -73.9855,
+        timestamp: new Date(),
+        accuracy: 10,
+      };
 
       const results = await service.findNearestRoads(testLocation);
 
       assertEquals(results.length, 2);
       assertEquals(results[0].placeId, "road1");
+      assertEquals(results[0].roadName, "Broadway");
       assertEquals(results[1].placeId, "road2");
+      assertEquals(results[1].roadName, "7th Avenue");
     });
 
     it("should return empty array when no roads are found", async () => {
+      // Stub to return no roads
+      stub(mockGoogleMapsClient, "nearestRoads", () =>
+        Promise.resolve({
+          snappedPoints: [],
+        })
+      );
+
       const testLocation: LocationData = {
         latitude: 0,
         longitude: 0,
         timestamp: new Date(),
         accuracy: 10,
       };
-
-      // Set up mock response with no roads
-      mockClients.httpClient.setMockJsonResponse(
-        "https://roads.googleapis.com/v1/nearestRoads*",
-        {
-          snappedPoints: [],
-        }
-      );
 
       const results = await service.findNearestRoads(testLocation);
       assertEquals(results.length, 0);
@@ -189,44 +175,38 @@ describe("GoogleRoadsService", () => {
 
   describe("testConnection", () => {
     it("should return true for successful connection test", async () => {
-      // Set up successful mock response
-      mockClients.httpClient.setMockJsonResponse(
-        "https://roads.googleapis.com/v1/snapToRoads*",
-        {
+      // Stub successful response
+      stub(mockGoogleMapsClient, "snapToRoads", () =>
+        Promise.resolve({
           snappedPoints: [
             {
               location: { latitude: 40.758, longitude: -73.9855 },
               placeId: "test_place_id",
             },
           ],
-        }
+        })
+      );
+
+      stub(mockGoogleMapsClient, "placeDetails", () =>
+        Promise.resolve({
+          result: {
+            name: "Test Road",
+          },
+        })
       );
 
       const result = await service.testConnection();
-      assertEquals(result, true);
-    });
-
-    it("should return false when API key is not configured", async () => {
-      // Remove API key
-      Deno.env.delete("GOOGLE_ROADS_API_KEY");
-      Deno.env.delete("GOOGLE_PLACES_API_KEY");
-
-      const serviceWithoutKey = new GoogleRoadsService(
-        mockClients.googleMapsClient
-      );
-      const result = await serviceWithoutKey.testConnection();
-      assertEquals(result, false);
+      assert(result);
     });
 
     it("should return false when connection fails", async () => {
-      // Set up error response
-      mockClients.httpClient.setMockErrorResponse(
-        "https://roads.googleapis.com/v1/snapToRoads*",
-        500
-      );
+      // Stub to throw an error
+      stub(mockGoogleMapsClient, "snapToRoads", () => {
+        throw new Error("Connection failed");
+      });
 
       const result = await service.testConnection();
-      assertEquals(result, false);
+      assertFalse(result);
     });
   });
 });

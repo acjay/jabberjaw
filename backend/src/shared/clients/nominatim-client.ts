@@ -1,5 +1,4 @@
 import { Injectable } from "@danet/core";
-import { FetchHttpClient } from "../fetch-http-client.ts";
 
 /**
  * Client for Nominatim (OpenStreetMap) geocoding API
@@ -8,8 +7,6 @@ import { FetchHttpClient } from "../fetch-http-client.ts";
 export class NominatimClient {
   private readonly baseUrl = "https://nominatim.openstreetmap.org";
   private readonly userAgent = "RoadTripNarrator/1.0";
-
-  constructor(private readonly httpClient: FetchHttpClient) {}
 
   /**
    * Reverse geocoding - get address from coordinates
@@ -35,7 +32,7 @@ export class NominatimClient {
       if (value) url.searchParams.set(key, value);
     });
 
-    const response = await this.httpClient.get(url.toString(), {
+    const response = await fetch(url.toString(), {
       headers: {
         "User-Agent": this.userAgent,
       },
@@ -79,7 +76,7 @@ export class NominatimClient {
       if (value) url.searchParams.set(key, value);
     });
 
-    const response = await this.httpClient.get(url.toString(), {
+    const response = await fetch(url.toString(), {
       headers: {
         "User-Agent": this.userAgent,
       },

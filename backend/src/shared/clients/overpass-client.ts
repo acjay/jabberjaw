@@ -1,5 +1,4 @@
 import { Injectable } from "@danet/core";
-import { FetchHttpClient } from "../fetch-http-client.ts";
 
 /**
  * Client for OpenStreetMap Overpass API
@@ -8,13 +7,11 @@ import { FetchHttpClient } from "../fetch-http-client.ts";
 export class OverpassClient {
   private readonly baseUrl = "https://overpass-api.de/api/interpreter";
 
-  constructor(private readonly httpClient: FetchHttpClient) {}
-
   /**
    * Execute an Overpass query
    */
   async query(overpassQuery: string): Promise<any> {
-    const response = await this.httpClient.post(this.baseUrl, {
+    const response = await fetch(this.baseUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",

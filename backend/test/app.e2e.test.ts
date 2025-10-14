@@ -11,9 +11,9 @@ describe("AppController (e2e)", () => {
     app = new DanetApplication();
     await app.init(AppModule);
 
-    const port = 3001; // Use different port for testing
-    await app.listen(port);
-    baseUrl = `http://localhost:${port}`;
+    // Use port 0 to let the OS assign an available port
+    const server = await app.listen(0);
+    baseUrl = `http://localhost:${server.port}`;
   });
 
   afterAll(async () => {
