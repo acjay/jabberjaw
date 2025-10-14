@@ -7,6 +7,7 @@ import {
   ContentStyle,
 } from "../dto/index.ts";
 import { OpenAIClient } from "../../shared/index.ts";
+import { ConfigurationService } from "../../shared/configuration/index.ts";
 
 interface OpenAIMessage {
   role: "system" | "user" | "assistant";
@@ -29,25 +30,36 @@ interface OpenAIResponse {
 
 @Injectable()
 export class OpenAILLMService extends LLMService {
-  private readonly apiKey: string;
-  private readonly baseUrl = "https://api.openai.com/v1";
-  private readonly model: string;
+  private apiKey: string | undefined;
+  private model: string | undefined;
   private readonly maxRetries = 3;
   private readonly retryDelay = 1000; // 1 second
 
-  constructor(private readonly openaiClient: OpenAIClient) {
+  constructor(
+    private readonly openaiClient: OpenAIClient,
+    private readonly configService: ConfigurationService
+  ) {
     super();
-    this.apiKey = Deno.env.get("OPENAI_API_KEY") || "";
-    this.model = Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini";
+  }
 
-    if (!this.apiKey) {
-      console.warn(
-        "OPENAI_API_KEY not found in environment variables. OpenAI service will not work."
-      );
+  private async ensureInitialized(): Promise<void> {
+    if (this.apiKey === undefined) {
+      try {
+        this.apiKey = await this.configService.getOpenAIApiKey();
+        this.model = await this.configService.getOpenAIModel();
+      } catch (_error) {
+        console.warn(
+          "OPENAI_API_KEY not found in environment variables. OpenAI service will not work."
+        );
+        this.apiKey = "";
+        this.model = "gpt-4o-mini";
+      }
     }
   }
 
   async generateContent(request: ContentRequestDto): Promise<LLMResponse> {
+    await this.ensureInitialized();
+
     if (!this.apiKey) {
       throw new Error(
         "OpenAI API key not configured. Please set OPENAI_API_KEY environment variable."
@@ -62,7 +74,7 @@ export class OpenAILLMService extends LLMService {
       return {
         content,
         estimatedDuration: this.estimateDuration(content),
-        sources: ["OpenAI", this.model],
+        sources: ["OpenAI", this.model!],
       };
     } catch (error) {
       console.error("OpenAI API error:", error);
@@ -117,6 +129,8 @@ Focus on making the content memorable and engaging for travelers passing through
   }
 
   private async callOpenAI(prompt: string): Promise<string> {
+    await this.ensureInitialized();
+
     const messages: OpenAIMessage[] = [
       {
         role: "system",
@@ -130,7 +144,7 @@ Focus on making the content memorable and engaging for travelers passing through
     ];
 
     const requestBody = {
-      model: this.model,
+      model: this.model!,
       messages,
       max_tokens: 800, // Roughly 600 words
       temperature: 0.7, // Creative but not too random
@@ -143,12 +157,12 @@ Focus on making the content memorable and engaging for travelers passing through
       try {
         const data: OpenAIResponse = await this.openaiClient.chatCompletion(
           {
-            model: this.model,
+            model: this.model!,
             messages: requestBody.messages,
             temperature: requestBody.temperature,
             max_tokens: requestBody.max_tokens,
           },
-          this.apiKey
+          this.apiKey!
         );
 
         if (!data.choices || data.choices.length === 0) {

@@ -1,25 +1,30 @@
 import { Injectable } from "@danet/core";
 import { ContentRequestDto, GeneratedContentDto } from "../dto/index.ts";
-import { MockLLMService } from "./llm.service.ts";
+import { MockLLMService, LLMService } from "./llm.service.ts";
 import { OpenAILLMService } from "./openai-llm.service.ts";
 import {
   ContentInputData,
   ContentStorageService,
   StoredContent,
 } from "./content-storage.service.ts";
+import { ConfigurationService } from "../../shared/configuration/index.ts";
 
 @Injectable()
 export class StoryService {
-  private readonly llmService: MockLLMService | OpenAILLMService;
-
   constructor(
-    mockLLMService: MockLLMService,
-    openAILLMService: OpenAILLMService,
-    private readonly storageService: ContentStorageService
-  ) {
-    // Choose which LLM service to use based on environment
-    const apiKey = Deno.env.get("OPENAI_API_KEY");
-    this.llmService = apiKey ? openAILLMService : mockLLMService;
+    private readonly mockLLMService: MockLLMService,
+    private readonly openAILLMService: OpenAILLMService,
+    private readonly storageService: ContentStorageService,
+    private readonly configService: ConfigurationService
+  ) {}
+
+  private async getLLMService(): Promise<LLMService> {
+    try {
+      await this.configService.getOpenAIApiKey();
+      return this.openAILLMService;
+    } catch {
+      return this.mockLLMService;
+    }
   }
 
   async generateContent(
@@ -43,8 +48,9 @@ export class StoryService {
     }
 
     // Generate new content
-    const llmResponse = await this.llmService.generateContent(request);
-    const prompt = this.llmService.generatePrompt(
+    const llmService = await this.getLLMService();
+    const llmResponse = await llmService.generateContent(request);
+    const prompt = llmService.generatePrompt(
       request.input,
       request.contentStyle!
     );
@@ -65,15 +71,15 @@ export class StoryService {
     return generatedContent;
   }
 
-  async getContent(id: string): Promise<StoredContent | null> {
+  getContent(id: string): StoredContent | null {
     return this.storageService.retrieve(id);
   }
 
-  async listContent(limit = 10, offset = 0): Promise<StoredContent[]> {
+  listContent(limit = 10, offset = 0): StoredContent[] {
     return this.storageService.list(limit, offset);
   }
 
-  async deleteContent(id: string): Promise<boolean> {
+  deleteContent(id: string): boolean {
     return this.storageService.delete(id);
   }
 
@@ -95,7 +101,7 @@ export class StoryService {
     };
   }
 
-  async clearCache(): Promise<void> {
+  clearCache(): void {
     this.storageService.clear();
   }
 

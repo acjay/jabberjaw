@@ -1,5 +1,5 @@
-import { Controller, Get } from '@danet/core';
-import { AppService } from './app.service.ts';
+import { Controller, Get } from "@danet/core";
+import { AppService } from "./app.service.ts";
 
 @Controller()
 export class AppController {
@@ -10,8 +10,8 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  @Get('health')
-  getHealth() {
-    return this.appService.getHealth();
+  @Get("health")
+  async getHealth() {
+    return await this.appService.getHealth();
   }
 }

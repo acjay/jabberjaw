@@ -7,6 +7,7 @@ import { POICategory } from "../../models/poi.model.ts";
 import { OverpassClient } from "../../shared/clients/overpass-client.ts";
 import { GoogleMapsClient } from "../../shared/clients/google-maps-client.ts";
 import { NominatimClient } from "../../shared/clients/nominatim-client.ts";
+import { ConfigurationService } from "../../shared/configuration/index.ts";
 
 describe("POIIdentificationService", () => {
   let service: POIIdentificationService;
@@ -72,10 +73,14 @@ describe("POIIdentificationService", () => {
       })
     );
 
+    const configService = new ConfigurationService();
+    configService.setForTesting("GOOGLE_PLACES_API_KEY", "test-api-key");
+
     service = new POIIdentificationService(
       mockOverpassClient,
       mockGoogleMapsClient,
-      mockNominatimClient
+      mockNominatimClient,
+      configService
     );
 
     mockLocation = {

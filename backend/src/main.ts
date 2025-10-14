@@ -1,6 +1,7 @@
 import { DanetApplication } from "@danet/core";
 import { load } from "@std/dotenv";
 import { AppModule } from "./app.module.ts";
+import { ConfigurationService } from "./shared/configuration/index.ts";
 
 // Load environment variables
 await load({ export: true });
@@ -17,7 +18,9 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const port = Number(Deno.env.get("PORT")) || 3000;
+  // Get configuration service to read port
+  const configService = app.get(ConfigurationService);
+  const port = await configService.getPort();
 
   console.log(`Jabberjaw Backend starting on port ${port}`);
   await app.listen(port);

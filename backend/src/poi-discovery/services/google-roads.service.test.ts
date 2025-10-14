@@ -10,20 +10,24 @@ import { stub } from "@std/testing/mock";
 import { GoogleRoadsService } from "./google-roads.service.ts";
 import { GoogleMapsClient } from "../../shared/clients/google-maps-client.ts";
 import { LocationData } from "../../models/location.model.ts";
+import { ConfigurationService } from "../../shared/configuration/index.ts";
 
 describe("GoogleRoadsService", () => {
   let service: GoogleRoadsService;
   let mockGoogleMapsClient: GoogleMapsClient;
+  let configService: ConfigurationService;
 
   beforeEach(() => {
     // Create mock client - no pre-configured stubs
     mockGoogleMapsClient = {} as GoogleMapsClient;
-    service = new GoogleRoadsService(mockGoogleMapsClient);
+    configService = new ConfigurationService();
+    configService.setForTesting("GOOGLE_MAPS_API_KEY", "test-api-key");
+    service = new GoogleRoadsService(mockGoogleMapsClient, configService);
   });
 
   describe("constructor", () => {
-    it("should initialize with API key from environment", () => {
-      assertEquals(service.isConfigured(), true);
+    it("should initialize with API key from environment", async () => {
+      assertEquals(await service.isConfigured(), true);
     });
   });
 

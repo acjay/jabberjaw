@@ -51,6 +51,8 @@ deno task fmt:check    # Check formatting
 - `.env` files for local development
 - `.env.example` provides template for required variables
 - Key variables: `OPENAI_API_KEY`, `OPENAI_MODEL`, `PORT`
+- **Configuration Service**: Use `ConfigurationService` from `ConfigurationModule` instead of direct `Deno.env` access
+- Services should inject `ConfigurationService` for environment variable access to improve testability
 
 ## Testing Approach
 
@@ -65,3 +67,7 @@ deno task fmt:check    # Check formatting
 - Ensure code compiles before completing each task (e.g. `deno check` for Deno code)
 - Ensure tests still pass before completing each task (e.g. `deno task test` for Deno code)
 - If APIs have been modified, validate the response with a `curl` command. The user should be running the server in `dev` mode. The command `curl -X GET http://localhost:3000/api/health -s` is trusted so that the agent can automatically verify that the server is running. Therefore, the agent should not suggest starting the server as a tool command. It should ask the user to start the server in a separate terminal if the health check fails to verify that the server is running.
+
+## Other notes
+
+- Please ignore the warning `Warning experimentalDecorators compiler option is deprecated and may be removed at any time`. Danet relies on the deprecated form of decorators, to match the behavior of NestJS. The project has has no intention to use the more standardized form.

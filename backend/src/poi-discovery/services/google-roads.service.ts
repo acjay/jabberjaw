@@ -1,6 +1,7 @@
 import { Injectable } from "@danet/core";
 import { LocationData } from "../../models/location.model.ts";
 import { GoogleMapsClient } from "../../shared/index.ts";
+import { ConfigurationService } from "../../shared/configuration/index.ts";
 
 /**
  * Google Roads API response interfaces
@@ -44,19 +45,23 @@ export interface RoadInfo {
  */
 @Injectable()
 export class GoogleRoadsService {
-  private readonly baseUrl = "https://roads.googleapis.com/v1";
-  private readonly apiKey: string;
+  private apiKey: string | undefined;
 
-  constructor(private readonly googleMapsClient: GoogleMapsClient) {
-    this.apiKey =
-      Deno.env.get("GOOGLE_ROADS_API_KEY") ||
-      Deno.env.get("GOOGLE_PLACES_API_KEY") ||
-      "";
+  constructor(
+    private readonly googleMapsClient: GoogleMapsClient,
+    private readonly configService: ConfigurationService
+  ) {}
 
-    if (!this.apiKey) {
-      console.warn(
-        "Google Roads API key not configured. Service will not function properly."
-      );
+  private async ensureInitialized(): Promise<void> {
+    if (this.apiKey === undefined) {
+      try {
+        this.apiKey = await this.configService.getGoogleMapsApiKey();
+      } catch (error) {
+        console.warn(
+          "Google Roads API key not configured. Service will not function properly."
+        );
+        this.apiKey = "";
+      }
     }
   }
 
@@ -65,6 +70,8 @@ export class GoogleRoadsService {
    * This is the primary method for direct road identification
    */
   async snapToRoads(location: LocationData): Promise<RoadInfo | null> {
+    await this.ensureInitialized();
+
     if (!this.apiKey) {
       throw new Error("Google Roads API key not configured");
     }
@@ -115,6 +122,8 @@ export class GoogleRoadsService {
    * Alternative method that doesn't require the user to be exactly on a road
    */
   async findNearestRoads(location: LocationData): Promise<RoadInfo[]> {
+    await this.ensureInitialized();
+
     if (!this.apiKey) {
       throw new Error("Google Roads API key not configured");
     }
@@ -181,7 +190,7 @@ export class GoogleRoadsService {
       const data = await this.googleMapsClient.placeDetails({
         place_id: placeId,
         fields: "name,formatted_address,types",
-        key: this.apiKey,
+        key: this.apiKey!,
       });
 
       if (data.result) {
@@ -258,7 +267,8 @@ export class GoogleRoadsService {
   /**
    * Check if the service is properly configured
    */
-  isConfigured(): boolean {
+  async isConfigured(): Promise<boolean> {
+    await this.ensureInitialized();
     return !!this.apiKey;
   }
 
@@ -266,6 +276,8 @@ export class GoogleRoadsService {
    * Test the API connection
    */
   async testConnection(): Promise<boolean> {
+    await this.ensureInitialized();
+
     if (!this.apiKey) {
       return false;
     }

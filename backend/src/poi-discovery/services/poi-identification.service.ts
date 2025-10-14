@@ -6,6 +6,7 @@ import {
   GoogleMapsClient,
   NominatimClient,
 } from "../../shared/index.ts";
+import { ConfigurationService } from "../../shared/configuration/index.ts";
 
 /**
  * Configuration for POI discovery queries
@@ -55,7 +56,8 @@ export class POIIdentificationService {
   constructor(
     private readonly overpassClient: OverpassClient,
     private readonly googleMapsClient: GoogleMapsClient,
-    private readonly nominatimClient: NominatimClient
+    private readonly nominatimClient: NominatimClient,
+    private readonly configService: ConfigurationService
   ) {}
 
   /**
@@ -147,7 +149,7 @@ export class POIIdentificationService {
 
     try {
       // Try Google Geocoding API first
-      const googleKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
+      const googleKey = await this.configService.get("GOOGLE_PLACES_API_KEY");
       if (googleKey) {
         try {
           const data = await this.googleMapsClient.geocode({
@@ -600,7 +602,7 @@ export class POIIdentificationService {
     location: LocationData,
     config: POIDiscoveryConfig
   ): Promise<ExternalPOIResult[]> {
-    const apiKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
+    const apiKey = await this.configService.get("GOOGLE_PLACES_API_KEY");
     if (!apiKey) {
       throw new Error("Google Places API key not configured");
     }
