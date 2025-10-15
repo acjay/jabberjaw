@@ -1,4 +1,18 @@
 import { Injectable } from "@danet/core";
+import {
+  type PlacesNearbySearchResponse,
+  type GeocodingResponse,
+  type SnapToRoadsResponse,
+  type NearestRoadsResponse,
+  type SpeedLimitsResponse,
+  type PlaceDetailsResponse,
+  PlacesNearbySearchResponseSchema,
+  GeocodingResponseSchema,
+  SnapToRoadsResponseSchema,
+  NearestRoadsResponseSchema,
+  SpeedLimitsResponseSchema,
+  PlaceDetailsResponseSchema,
+} from "../schemas/index.ts";
 
 /**
  * Client for Google Maps APIs (Places, Geocoding, Roads)
@@ -13,7 +27,7 @@ export class GoogleMapsClient {
     radius: string;
     type?: string;
     key: string;
-  }): Promise<any> {
+  }): Promise<PlacesNearbySearchResponse> {
     const url = new URL(
       "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     );
@@ -29,7 +43,8 @@ export class GoogleMapsClient {
       );
     }
 
-    return await response.json();
+    const data = await response.json();
+    return PlacesNearbySearchResponseSchema.parse(data);
   }
 
   /**
@@ -39,7 +54,7 @@ export class GoogleMapsClient {
     latlng?: string;
     address?: string;
     key: string;
-  }): Promise<any> {
+  }): Promise<GeocodingResponse> {
     const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
     Object.entries(params).forEach(([key, value]) => {
       if (value) url.searchParams.set(key, value);
@@ -53,7 +68,8 @@ export class GoogleMapsClient {
       );
     }
 
-    return await response.json();
+    const data = await response.json();
+    return GeocodingResponseSchema.parse(data);
   }
 
   /**
@@ -63,7 +79,7 @@ export class GoogleMapsClient {
     path: string;
     interpolate?: string;
     key: string;
-  }): Promise<any> {
+  }): Promise<SnapToRoadsResponse> {
     const url = new URL("https://roads.googleapis.com/v1/snapToRoads");
     Object.entries(params).forEach(([key, value]) => {
       if (value) url.searchParams.set(key, value);
@@ -77,13 +93,17 @@ export class GoogleMapsClient {
       );
     }
 
-    return await response.json();
+    const data = await response.json();
+    return SnapToRoadsResponseSchema.parse(data);
   }
 
   /**
    * Make a request to Google Roads API - Nearest Roads
    */
-  async nearestRoads(params: { points: string; key: string }): Promise<any> {
+  async nearestRoads(params: {
+    points: string;
+    key: string;
+  }): Promise<NearestRoadsResponse> {
     const url = new URL("https://roads.googleapis.com/v1/nearestRoads");
     Object.entries(params).forEach(([key, value]) => {
       if (value) url.searchParams.set(key, value);
@@ -97,13 +117,17 @@ export class GoogleMapsClient {
       );
     }
 
-    return await response.json();
+    const data = await response.json();
+    return NearestRoadsResponseSchema.parse(data);
   }
 
   /**
    * Make a request to Google Roads API - Speed Limits
    */
-  async speedLimits(params: { path: string; key: string }): Promise<any> {
+  async speedLimits(params: {
+    path: string;
+    key: string;
+  }): Promise<SpeedLimitsResponse> {
     const url = new URL("https://roads.googleapis.com/v1/speedLimits");
     Object.entries(params).forEach(([key, value]) => {
       if (value) url.searchParams.set(key, value);
@@ -117,7 +141,8 @@ export class GoogleMapsClient {
       );
     }
 
-    return await response.json();
+    const data = await response.json();
+    return SpeedLimitsResponseSchema.parse(data);
   }
 
   /**
@@ -127,7 +152,7 @@ export class GoogleMapsClient {
     place_id: string;
     fields?: string;
     key: string;
-  }): Promise<any> {
+  }): Promise<PlaceDetailsResponse> {
     const url = new URL(
       "https://maps.googleapis.com/maps/api/place/details/json"
     );
@@ -143,6 +168,7 @@ export class GoogleMapsClient {
       );
     }
 
-    return await response.json();
+    const data = await response.json();
+    return PlaceDetailsResponseSchema.parse(data);
   }
 }

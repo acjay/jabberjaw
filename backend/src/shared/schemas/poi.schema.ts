@@ -20,6 +20,7 @@ export const POISchema = z.object({
   distance: z.number().optional(),
   significance: z.number().optional(),
   description: z.string().optional(),
+  locationDescription: z.string().optional(),
   tags: z.array(z.string()).optional(),
 });
 
@@ -51,13 +52,15 @@ export const TopSignificantPOIsRequestSchema = z.object({
 
 // Structured POI schema for content generation
 export const StructuredPOISchema = z.object({
+  type: z.literal("StructuredPOI"),
   name: z.string().min(1),
-  type: z.string().min(1),
+  poiType: z.string().min(1),
   location: z.object({
     latitude: z.number(),
     longitude: z.number(),
   }),
   description: z.string().optional(),
+  locationDescription: z.string().optional(),
   category: z.string().optional(),
   significance: z.number().optional(),
   tags: z.array(z.string()).optional(),
@@ -65,6 +68,7 @@ export const StructuredPOISchema = z.object({
 
 // Text POI description schema
 export const TextPOIDescriptionSchema = z.object({
+  type: z.literal("TextPOIDescription"),
   description: z.string().min(1),
 });
 

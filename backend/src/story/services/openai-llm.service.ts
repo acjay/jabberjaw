@@ -1,13 +1,17 @@
 import { Injectable } from "@danet/core";
-import { LLMService, LLMResponse } from "./llm.service.ts";
 import {
-  ContentRequestDto,
-  TextPOIDescriptionDto,
-  StructuredPOIDto,
-  ContentStyle,
-} from "../dto/index.ts";
+  LLMService,
+  LLMResponse,
+  StorySeedsResponse,
+  StorySeed,
+} from "./llm.service.ts";
 import { OpenAIClient } from "../../shared/index.ts";
 import { ConfigurationService } from "../../configuration/index.ts";
+import {
+  ContentRequest,
+  ContentStyle,
+  type ContentStyleType,
+} from "../../shared/schemas/index.ts";
 
 interface OpenAIMessage {
   role: "system" | "user" | "assistant";
@@ -57,7 +61,7 @@ export class OpenAILLMService extends LLMService {
     }
   }
 
-  async generateContent(request: ContentRequestDto): Promise<LLMResponse> {
+  async generateFullStory(request: ContentRequest): Promise<LLMResponse> {
     await this.ensureInitialized();
 
     if (!this.apiKey) {
@@ -86,30 +90,104 @@ export class OpenAILLMService extends LLMService {
     }
   }
 
+  async generateStorySeedsForPOI(
+    poiDescription: string
+  ): Promise<StorySeedsResponse> {
+    await this.ensureInitialized();
+
+    if (!this.apiKey) {
+      throw new Error(
+        "OpenAI API key not configured. Please set OPENAI_API_KEY environment variable."
+      );
+    }
+
+    const prompt = this.generateStorySeedsPrompt(poiDescription);
+
+    try {
+      const content = await this.callOpenAI(prompt);
+      const seeds = this.parseStorySeedsResponse(content);
+
+      return {
+        seeds,
+        sources: ["OpenAI", this.model!],
+      };
+    } catch (error) {
+      console.error("OpenAI API error:", error);
+      throw new Error(
+        `Failed to generate story seeds: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
+  private generateStorySeedsPrompt(poiDescription: string): string {
+    return `Please generate segments of content for narrating points of interest during a road trip in real time. I want you to start by generating a list potential stories, given a list of nearby points of interest. Later, I will select a story to be elaborated into a 3-minute segment.
+
+I want up to 20 summaries of potential stories. Each summary should be a paragraph, followed by a title of less than 10 words, which will be used to identify the story. The summaries should be factual, rather than entertaining. The title should be descriptive, not artistic, because we want it to serve as an identifier.
+
+Examples of story topics include:
+- Surprising facts
+- Events of historical significance
+- Recent events
+- Associations with well-known people
+- Origin stories of the place or piece of infrastructure
+
+These are just example topics, you can go beyond this set.
+
+The stories should be distinct. They can be on different facets of the same topic. I just don't want stories that are basically duplicates. You can give me less than 20 summaries if you run out of interesting story ideas. If you have no information at all to create a good story idea, please respond "no story ideas".
+
+Please format your response as follows for each story:
+SUMMARY: [paragraph summary]
+TITLE: [descriptive title under 10 words]
+
+The point of interest is: ${poiDescription}`;
+  }
+
+  private parseStorySeedsResponse(content: string): StorySeed[] {
+    if (content.toLowerCase().includes("no story ideas")) {
+      return [];
+    }
+
+    const seeds: StorySeed[] = [];
+    const sections = content.split(/(?=SUMMARY:)/i);
+
+    for (const section of sections) {
+      const summaryMatch = section.match(/SUMMARY:\s*(.+?)(?=TITLE:|$)/is);
+      const titleMatch = section.match(/TITLE:\s*(.+?)$/im);
+
+      if (summaryMatch && titleMatch) {
+        const summary = summaryMatch[1].trim();
+        const title = titleMatch[1].trim();
+
+        if (summary && title) {
+          seeds.push({ summary, title });
+        }
+      }
+    }
+
+    return seeds;
+  }
+
   generatePrompt(
-    input: TextPOIDescriptionDto | StructuredPOIDto,
-    style: ContentStyle
+    input: ContentRequest["input"],
+    style: ContentStyleType
   ): string {
     const basePrompt = `Create an engaging 3-minute podcast-style narration about `;
 
     let subject: string;
     let context = "";
 
-    if (input instanceof TextPOIDescriptionDto) {
+    if (input.type === "TextPOIDescription") {
       subject = input.description;
     } else {
-      subject = `${input.name}, a ${input.type} in ${
-        input.location.city || input.location.state || input.location.country
+      subject = `${input.name}, a ${input.poiType}${
+        input.locationDescription ? ` in ${input.locationDescription}` : ""
       }`;
       if (input.description) {
         context = `Additional context: ${input.description}. `;
       }
-      if (input.context) {
-        context += `${input.context}. `;
-      }
-      if (input.location.coordinates) {
-        context += `Located at coordinates ${input.location.coordinates.latitude}, ${input.location.coordinates.longitude}. `;
-      }
+      context += `Located at coordinates ${input.location.latitude}, ${input.location.longitude}. `;
     }
 
     const styleInstructions = this.getStyleInstructions(style);
@@ -200,7 +278,7 @@ Focus on making the content memorable and engaging for travelers passing through
     throw new Error("All OpenAI API attempts failed");
   }
 
-  private getStyleInstructions(style: ContentStyle): string {
+  private getStyleInstructions(style: ContentStyleType): string {
     switch (style) {
       case ContentStyle.HISTORICAL:
         return "Focus on historical events, founding stories, significant moments in time, and the people who shaped this place. Include dates, historical context, and how past events connect to the present. ";

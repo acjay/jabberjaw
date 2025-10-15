@@ -36,6 +36,8 @@
     "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
     "@std/assert": "jsr:@std/assert@^1.0.15",
     "@std/testing": "jsr:@std/testing@^1.0.16",
+    "@std/testing/bdd": "jsr:@std/testing@^1.0.16/bdd",
+    "@std/testing/mock": "jsr:@std/testing@^1.0.16/mock",
     "zod": "npm:zod@^3.23.8",
     "zod-openapi": "npm:@anatine/zod-openapi@2.2.6"
   }

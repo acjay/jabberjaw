@@ -9,8 +9,6 @@ import {
   StoryResponse,
   ContentRequest,
   ContentStyle,
-  StructuredPOI,
-  TextPOIDescription,
 } from "../shared/schemas/index.ts";
 
 interface CachedJourney {
@@ -34,60 +32,36 @@ export class JourneyService {
     private contentService: StoryService
   ) {}
 
-  async processLocation(
+  async storySeedsForLocation(
     locationData: JourneyLocationRequest
   ): Promise<JourneyLocationResponse> {
-    const storyId = crypto.randomUUID();
-
     try {
-      console.log(
-        `Processing location: ${locationData.latitude}, ${locationData.longitude}`
-      );
-
-      // Convert request DTO to LocationData model
+      // Convert request to LocationData format
       const location: LocationData = {
         latitude: locationData.latitude,
         longitude: locationData.longitude,
-        timestamp: new Date(),
-        accuracy: locationData.accuracy || 10,
+        timestamp: locationData.timestamp || new Date(),
+        accuracy: locationData.accuracy || 10, // Default to 10 meters if not provided
       };
 
-      // Check cache first to avoid duplicate processing
+      // Check cache first
       const cacheKey = this.generateCacheKey(location);
-      const cachedJourney = this.getCachedJourney(cacheKey);
-
-      if (cachedJourney) {
-        console.log("Found cached journey, returning cached content");
-
-        // Create new story with cached data but new ID
-        const story: StoryResponse = {
-          storyId: storyId,
-          content: cachedJourney.content,
-          audioUrl: `/api/audio/${storyId}`,
-          duration: cachedJourney.estimatedDuration,
-          status: "ready",
-          location: {
-            latitude: location.latitude,
-            longitude: location.longitude,
-          },
-          generatedAt: new Date(), // Use current time for new request
-        };
-
-        this.stories.set(storyId, story);
-
+      const cached = this.getCachedJourney(cacheKey);
+      if (cached) {
+        console.log("Returning cached story seeds for location");
         return {
           seeds: [
             {
-              id: storyId,
+              id: cached.storyId,
               title: "Cached Story",
-              summary: "Previously generated content for this location",
+              summary: cached.content.substring(0, 200) + "...",
               location: {
                 latitude: location.latitude,
                 longitude: location.longitude,
               },
-              contentStyle: "mixed",
-              targetDuration: cachedJourney.estimatedDuration,
-              createdAt: new Date(),
+              contentStyle: "mixed" as ContentStyle,
+              targetDuration: cached.estimatedDuration,
+              createdAt: cached.generatedAt,
             },
           ],
           location: {
@@ -98,115 +72,131 @@ export class JourneyService {
         };
       }
 
-      // Step 1: Discover POIs near the location
-      console.log("Discovering POIs...");
+      // Discover POIs near the location
+      console.log(
+        `Discovering POIs for location: ${location.latitude}, ${location.longitude}`
+      );
       const pois = await this.poiService.discoverPOIs(location, {
-        radiusMeters: 5000, // 5km radius
+        radiusMeters: 5000,
         maxResults: 10,
       });
 
       console.log(`Found ${pois.length} POIs`);
 
-      // Step 2: Generate content based on discovered POIs
-      let content: string;
-      let estimatedDuration: number;
+      // Generate content based on POIs
+      let contentRequest: ContentRequest;
 
       if (pois.length > 0) {
-        // Create structured POI data for content generation
-        const primaryPOIs = pois.slice(0, 5); // Use top 5 POIs
-        const structuredPOI: StructuredPOI = {
-          name: this.generateLocationName(primaryPOIs, location),
-          type: this.determinePrimaryType(primaryPOIs),
-          location: {
-            latitude: location.latitude,
-            longitude: location.longitude,
-          },
-          description: this.generateLocationContext(primaryPOIs, location),
-        };
-
-        const contentRequest: ContentRequest = {
-          input: structuredPOI,
-          targetDuration: 180, // 3 minutes
-          contentStyle: "mixed",
-        };
-
-        console.log("Generating content with LLM...");
-        const generatedContent = await this.contentService.generateContent(
-          contentRequest
+        // Use the most significant POI as structured input, or create a comprehensive text description
+        const mostSignificantPOI = pois.reduce((prev, current) =>
+          (current.metadata?.significanceScore || 0) >
+          (prev.metadata?.significanceScore || 0)
+            ? current
+            : prev
         );
-        content = generatedContent.content;
-        estimatedDuration = generatedContent.duration;
 
-        console.log("Content generated successfully");
+        // If we have a highly significant POI, use structured input
+        if ((mostSignificantPOI.metadata?.significanceScore || 0) > 0.7) {
+          contentRequest = {
+            input: {
+              type: "StructuredPOI",
+              name: mostSignificantPOI.name,
+              poiType: mostSignificantPOI.category,
+              location: {
+                latitude: mostSignificantPOI.location.latitude,
+                longitude: mostSignificantPOI.location.longitude,
+              },
+              description:
+                mostSignificantPOI.description ||
+                `A ${mostSignificantPOI.category} in the area`,
+              category: mostSignificantPOI.category,
+              significance:
+                mostSignificantPOI.metadata?.significanceScore || 0.5,
+            },
+            targetDuration: 180,
+            contentStyle: "mixed" as ContentStyle,
+          };
+        } else {
+          // Use text description that includes multiple POIs
+          const locationContext = this.generateLocationContext(pois, location);
+          const poiDescriptions = pois
+            .slice(0, 5)
+            .map((poi) => `${poi.name} (${poi.category})`)
+            .join(", ");
+
+          contentRequest = {
+            input: {
+              description: `Location ${locationContext} with nearby points of interest including: ${poiDescriptions}. This area offers a variety of attractions and features for travelers.`,
+            },
+            targetDuration: 180,
+            contentStyle: "mixed" as ContentStyle,
+          };
+        }
       } else {
-        // Fallback: Generate content based on location coordinates only
-        console.log("No POIs found, generating location-based content...");
-
-        const textDescription: TextPOIDescription = {
-          description: `Location at coordinates ${location.latitude.toFixed(
-            4
-          )}, ${location.longitude.toFixed(
-            4
-          )}. This area represents a unique point on the map with its own geographic and cultural characteristics.`,
+        // Fallback to text description
+        const locationName = this.generateLocationName(pois, location);
+        contentRequest = {
+          input: {
+            description: `Location near ${locationName} at coordinates ${location.latitude.toFixed(
+              4
+            )}, ${location.longitude.toFixed(4)}`,
+          },
+          targetDuration: 180,
+          contentStyle: "mixed" as ContentStyle,
         };
-
-        const contentRequest: ContentRequest = {
-          input: textDescription,
-          targetDuration: 120, // 2 minutes for basic content
-          contentStyle: "geographical",
-        };
-
-        const generatedContent = await this.contentService.generateContent(
-          contentRequest
-        );
-        content = generatedContent.content;
-        estimatedDuration = generatedContent.duration;
       }
 
-      // Create and store the story
-      const story: StoryResponse = {
-        storyId: storyId,
-        content,
-        audioUrl: `/api/audio/${storyId}`,
-        duration: estimatedDuration,
-        status: "ready",
+      // Generate content using the story service
+      console.log("Generating story content...");
+      const generatedContent = await this.contentService.generateContent(
+        contentRequest
+      );
+
+      // Store the story for retrieval
+      const storyResponse: StoryResponse = {
+        storyId: generatedContent.id,
+        content: generatedContent.content,
+        duration: generatedContent.duration,
+        status: generatedContent.status,
         location: {
           latitude: location.latitude,
           longitude: location.longitude,
         },
-        generatedAt: new Date(),
+        generatedAt: generatedContent.generatedAt,
+        storyTitle: `Story for ${this.generateLocationName(pois, location)}`,
+        storySummary: generatedContent.content.substring(0, 200) + "...",
       };
 
-      this.stories.set(storyId, story);
+      this.stories.set(generatedContent.id, storyResponse);
 
-      // Cache the journey for future requests
-      this.cacheJourney(cacheKey, {
-        storyId,
-        content,
+      // Cache the journey
+      const cachedJourney: CachedJourney = {
+        storyId: generatedContent.id,
+        content: generatedContent.content,
         location,
         pois,
-        generatedAt: new Date(),
-        estimatedDuration,
+        generatedAt: generatedContent.generatedAt || new Date(),
+        estimatedDuration: generatedContent.duration,
         cacheKey,
-      });
+      };
+      this.cacheJourney(cacheKey, cachedJourney);
 
-      console.log(
-        `Journey processing completed successfully for story ${storyId}`
-      );
-
+      // Return story seeds response
       return {
         seeds: [
           {
-            id: storyId,
-            title: this.generateLocationName(pois, location),
-            summary: content.substring(0, 200) + "...",
+            id: generatedContent.id,
+            title: storyResponse.storyTitle || "Local Story",
+            summary:
+              storyResponse.storySummary ||
+              generatedContent.content.substring(0, 200) + "...",
             location: {
               latitude: location.latitude,
               longitude: location.longitude,
             },
-            contentStyle: "mixed",
-            targetDuration: estimatedDuration,
-            createdAt: new Date(),
+            contentStyle: contentRequest.contentStyle,
+            targetDuration: generatedContent.duration,
+            createdAt: generatedContent.generatedAt || new Date(),
           },
         ],
         location: {
@@ -216,42 +206,40 @@ export class JourneyService {
         timestamp: new Date(),
       };
     } catch (error) {
-      console.error("Error processing location:", error);
+      console.error("Error generating story seeds for location:", error);
 
-      // Enhanced error handling with service coordination failure recovery
-      const fallbackContent = await this.generateFallbackContent(
-        locationData,
-        error
-      );
-      const estimatedDuration = 120; // 2 minutes for fallback
+      // Return fallback response
+      const fallbackContent = this.generateFallbackContent(locationData, error);
+      const fallbackId = crypto.randomUUID();
 
-      const story: StoryResponse = {
-        storyId: storyId,
+      const fallbackStory: StoryResponse = {
+        storyId: fallbackId,
         content: fallbackContent,
-        audioUrl: `/api/audio/${storyId}`,
-        duration: estimatedDuration,
+        duration: 60,
         status: "ready",
         location: {
           latitude: locationData.latitude,
           longitude: locationData.longitude,
         },
         generatedAt: new Date(),
+        storyTitle: "Local Area Information",
+        storySummary: "Basic information about your current location.",
       };
 
-      this.stories.set(storyId, story);
+      this.stories.set(fallbackId, fallbackStory);
 
       return {
         seeds: [
           {
-            id: storyId,
-            title: "Fallback Content",
-            summary: fallbackContent.substring(0, 200) + "...",
+            id: fallbackId,
+            title: "Local Area Information",
+            summary: "Basic information about your current location.",
             location: {
               latitude: locationData.latitude,
               longitude: locationData.longitude,
             },
-            contentStyle: "mixed",
-            targetDuration: estimatedDuration,
+            contentStyle: "mixed" as ContentStyle,
+            targetDuration: 60,
             createdAt: new Date(),
           },
         ],
@@ -265,8 +253,16 @@ export class JourneyService {
   }
 
   getStory(storyId: string): StoryResponse | null {
+    // Retrieve story from memory
     const story = this.stories.get(storyId);
-    return story || null;
+
+    if (!story) {
+      return null;
+    }
+
+    // Update access count if we had that tracking
+    // For now, just return the story
+    return story;
   }
 
   getHealth(): { status: string; stories: number } {
@@ -350,51 +346,6 @@ export class JourneyService {
     );
   }
 
-  private determinePrimaryType(pois: PointOfInterest[]): string {
-    if (pois.length === 0) return "landmark";
-
-    // Count categories to determine primary type
-    const categoryCounts = new Map<string, number>();
-    pois.forEach((poi) => {
-      const count = categoryCounts.get(poi.category) || 0;
-      categoryCounts.set(poi.category, count + 1);
-    });
-
-    // Return the most common category
-    let maxCount = 0;
-    let primaryCategory = "landmark";
-    for (const [category, count] of categoryCounts.entries()) {
-      if (count > maxCount) {
-        maxCount = count;
-        primaryCategory = category;
-      }
-    }
-
-    return primaryCategory;
-  }
-
-  private calculateOverallSignificance(pois: PointOfInterest[]): number {
-    if (pois.length === 0) return 0.3;
-
-    const scores = pois
-      .map((poi) => poi.metadata?.significanceScore || 0.5)
-      .filter((score) => score > 0);
-
-    if (scores.length === 0) return 0.3;
-
-    // Calculate weighted average with higher weight for top POIs
-    let weightedSum = 0;
-    let totalWeight = 0;
-
-    scores.forEach((score, index) => {
-      const weight = Math.max(1, 5 - index); // Higher weight for first POIs
-      weightedSum += score * weight;
-      totalWeight += weight;
-    });
-
-    return Math.min(1.0, weightedSum / totalWeight);
-  }
-
   private generateLocationContext(
     pois: PointOfInterest[],
     location: LocationData
@@ -436,25 +387,6 @@ export class JourneyService {
         4
       )}, ${location.longitude.toFixed(4)}`
     );
-  }
-
-  private calculateDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // Distance in kilometers
   }
 
   private generateFallbackContent(

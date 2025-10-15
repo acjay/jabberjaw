@@ -7,6 +7,41 @@ import {
   NominatimClient,
 } from "../../shared/index.ts";
 import { ConfigurationService } from "../../configuration/index.ts";
+import {
+  generateLocationDescription,
+  generateCountyLocationDescription,
+  isCountyLevelPOI,
+} from "../../shared/utils/location-description.ts";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { string } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { string } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { string } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
+import { number } from "../../../../../../Library/Caches/deno/npm/registry.npmjs.org/zod/3.23.8/lib/types.js";
 
 /**
  * Configuration for POI discovery queries
@@ -102,7 +137,7 @@ export class POIIdentificationService {
       const uniqueResults = this.deduplicateResults(allResults);
       const limitedResults = uniqueResults.slice(0, searchConfig.maxResults);
 
-      return this.categorizePOIs(limitedResults, location);
+      return await this.categorizePOIs(limitedResults, location);
     } catch (error) {
       console.error("Error discovering POIs:", error);
       // Return mock data for development/testing
@@ -776,11 +811,13 @@ export class POIIdentificationService {
   /**
    * Categorize external POI results into our POI taxonomy
    */
-  private categorizePOIs(
+  private async categorizePOIs(
     externalResults: ExternalPOIResult[],
     userLocation: LocationData
-  ): PointOfInterest[] {
-    return externalResults.map((result) => {
+  ): Promise<PointOfInterest[]> {
+    const pois: PointOfInterest[] = [];
+
+    for (const result of externalResults) {
       const category = this.mapToInternalCategory(result.types);
       const significance = this.calculateSignificance(result);
       const significanceScore = this.calculateSignificanceScore(
@@ -789,7 +826,29 @@ export class POIIdentificationService {
         userLocation
       );
 
-      return {
+      // Generate location description using geocoding
+      let locationDescription: string | undefined;
+      try {
+        const googleKey = await this.configService.getGooglePlacesApiKey();
+        if (googleKey) {
+          const geocodingResponse = await this.googleMapsClient.geocode({
+            latlng: `${result.location.lat},${result.location.lng}`,
+            key: googleKey,
+          });
+
+          if (isCountyLevelPOI(result.name, result.types)) {
+            locationDescription =
+              generateCountyLocationDescription(geocodingResponse);
+          } else {
+            locationDescription =
+              generateLocationDescription(geocodingResponse);
+          }
+        }
+      } catch (error) {
+        console.warn("Error generating location description:", error);
+      }
+
+      pois.push({
         id: result.id,
         name: result.name,
         category,
@@ -798,12 +857,15 @@ export class POIIdentificationService {
           longitude: result.location.lng,
         },
         description: this.generateDescription(result),
+        locationDescription,
         metadata: {
           significance: significance,
           significanceScore: significanceScore,
         },
-      };
-    });
+      });
+    }
+
+    return pois;
   }
 
   /**
@@ -1220,6 +1282,8 @@ export class POIIdentificationService {
         },
         description:
           "A charming historic downtown area with 19th-century architecture",
+        locationDescription:
+          "Millville, Cumberland County, New Jersey, United States",
         metadata: {
           foundedYear: 1850,
           population: 15000,
@@ -1237,6 +1301,8 @@ export class POIIdentificationService {
         },
         description:
           "A scenic park along the river with walking trails and picnic areas",
+        locationDescription:
+          "Millville, Cumberland County, New Jersey, United States",
         metadata: {
           elevation: 150,
           significance: ["recreational", "natural"],
@@ -1253,6 +1319,8 @@ export class POIIdentificationService {
         },
         description:
           "Museum showcasing the rich history and culture of the region",
+        locationDescription:
+          "Millville, Cumberland County, New Jersey, United States",
         metadata: {
           foundedYear: 1925,
           significance: ["cultural", "educational"],
@@ -1268,6 +1336,8 @@ export class POIIdentificationService {
           longitude: location.longitude + 0.004,
         },
         description: "A beautiful Gothic cathedral built in the early 1900s",
+        locationDescription:
+          "Millville, Cumberland County, New Jersey, United States",
         metadata: {
           foundedYear: 1905,
           significance: ["religious", "architectural"],
@@ -1284,6 +1354,8 @@ export class POIIdentificationService {
         },
         description:
           "A historic bridge spanning the local river, built to honor veterans",
+        locationDescription:
+          "Millville, Cumberland County, New Jersey, United States",
         metadata: {
           foundedYear: 1945,
           significance: ["historical", "memorial"],
@@ -1300,6 +1372,7 @@ export class POIIdentificationService {
         },
         description:
           "Major interstate highway running north-south along the East Coast",
+        locationDescription: "New Jersey, United States",
         metadata: {
           significance: ["transportation", "infrastructure"],
           significanceScore: 100, // Maximum score - user is on the highway
@@ -1314,6 +1387,7 @@ export class POIIdentificationService {
           longitude: location.longitude,
         },
         description: "Municipality in the local area",
+        locationDescription: "Cumberland County, New Jersey, United States",
         metadata: {
           population: 25000,
           significance: ["administrative", "municipal"],

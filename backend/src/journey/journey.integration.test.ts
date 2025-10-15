@@ -22,177 +22,173 @@ describe("Journey Integration", () => {
     controller = new JourneyController(journeyService);
   });
 
-  describe("processLocation", () => {
-    it("should process location and return story seeds with POI data", async () => {
-      // Stub POI service to return mock POIs
+  describe("storySeedsForLocation", () => {
+    it("should generate story seeds for a valid location", async () => {
+      // Mock POI service to return some test POIs
       stub(mockPOIService, "discoverPOIs", () =>
         Promise.resolve([
           {
             id: "poi-1",
-            name: "Historic Downtown",
-            category: POICategory.NEIGHBORHOOD,
-            location: {
-              latitude: 40.7128,
-              longitude: -74.006,
-            },
-            description: "Historic downtown area with rich cultural heritage",
-            metadata: {
-              significanceScore: 85,
-              significance: ["historical", "cultural"],
-            },
-          },
-          {
-            id: "poi-2",
-            name: "Riverside Park",
-            category: POICategory.PARK,
-            location: {
-              latitude: 40.7129,
-              longitude: -74.0061,
-            },
-            description: "Beautiful waterfront park with walking trails",
-            metadata: {
-              significanceScore: 75,
-              significance: ["recreational", "natural"],
-            },
+            name: "Test Town",
+            category: POICategory.TOWN,
+            location: { latitude: 40.7128, longitude: -74.006 },
+            description: "A test town",
+            metadata: { significanceScore: 0.8 },
           },
         ])
       );
 
-      // Stub story service to return mock content
+      // Mock story service to return generated content
       stub(mockStoryService, "generateContent", () =>
         Promise.resolve({
-          id: "story-123",
-          content:
-            "Welcome to this historic downtown area, where centuries of history come alive. The nearby Riverside Park offers a peaceful retreat with stunning waterfront views...",
+          id: "story-1",
+          content: "This is a test story about Test Town...",
           duration: 180,
           status: "ready" as const,
+          generatedAt: new Date(),
         })
       );
 
-      const locationData: JourneyLocationRequest = {
+      const request: JourneyLocationRequest = {
         latitude: 40.7128,
         longitude: -74.006,
       };
 
-      const result = await controller.processLocation(locationData);
+      const result = await controller.processLocation(request);
 
-      // Verify response structure - now returns story seeds, not direct story
       assertExists(result.seeds);
-      assertExists(result.location);
-      assertExists(result.timestamp);
-
       assertEquals(Array.isArray(result.seeds), true);
-      assertEquals(result.seeds.length > 0, true);
-      assertEquals(typeof result.seeds[0].id, "string");
-      assertEquals(typeof result.seeds[0].title, "string");
-      assertEquals(typeof result.seeds[0].targetDuration, "number");
+      assertEquals(result.seeds.length, 1);
+      assertEquals(result.seeds[0].title, "Story for Near Test Town");
+      assertExists(result.location);
+      assertEquals(result.location.latitude, 40.7128);
+      assertEquals(result.location.longitude, -74.006);
     });
 
-    it("should handle service errors gracefully", async () => {
-      // Stub POI service to throw an error
-      stub(mockPOIService, "discoverPOIs", () => {
-        throw new Error("Service unavailable");
-      });
+    it("should handle locations with no POIs", async () => {
+      // Mock POI service to return empty array
+      stub(mockPOIService, "discoverPOIs", () => Promise.resolve([]));
 
-      const locationData: JourneyLocationRequest = {
-        latitude: 40.7128,
-        longitude: -74.006,
+      // Mock story service to return generated content
+      stub(mockStoryService, "generateContent", () =>
+        Promise.resolve({
+          id: "story-2",
+          content: "This is a fallback story...",
+          duration: 60,
+          status: "ready" as const,
+          generatedAt: new Date(),
+        })
+      );
+
+      const request: JourneyLocationRequest = {
+        latitude: 0,
+        longitude: 0,
       };
 
-      // Should not throw, but return fallback content
-      const result = await controller.processLocation(locationData);
+      const result = await controller.processLocation(request);
 
-      // Verify fallback response structure
       assertExists(result.seeds);
-      assertExists(result.location);
-      assertExists(result.timestamp);
-      assertEquals(Array.isArray(result.seeds), true);
-      assertEquals(result.seeds.length > 0, true);
+      assertEquals(result.seeds.length, 1);
+      assertExists(result.seeds[0].title);
+    });
+
+    it("should validate latitude bounds", async () => {
+      // Don't need to stub services since validation happens first
+      const request: JourneyLocationRequest = {
+        latitude: 91, // Invalid latitude
+        longitude: 0,
+      };
+
+      await assertRejects(
+        () => controller.processLocation(request),
+        HttpException,
+        "Latitude must be between -90 and 90 degrees"
+      );
+    });
+
+    it("should validate longitude bounds", async () => {
+      // Don't need to stub services since validation happens first
+      const request: JourneyLocationRequest = {
+        latitude: 0,
+        longitude: 181, // Invalid longitude
+      };
+
+      await assertRejects(
+        () => controller.processLocation(request),
+        HttpException,
+        "Longitude must be between -180 and 180 degrees"
+      );
     });
   });
 
   describe("getStory", () => {
-    it("should retrieve story by ID", async () => {
-      // First create a story seed by processing a location
-      stub(mockPOIService, "discoverPOIs", () =>
-        Promise.resolve([
-          {
-            id: "poi-1",
-            name: "Historic Downtown",
-            category: POICategory.NEIGHBORHOOD,
-            location: {
-              latitude: 40.7128,
-              longitude: -74.006,
-            },
-            description: "Historic downtown area with rich cultural heritage",
-            metadata: {
-              significanceScore: 85,
-              significance: ["historical", "cultural"],
-            },
-          },
-        ])
-      );
-
+    it("should retrieve an existing story", async () => {
+      // First, create a story by calling storySeedsForLocation
+      stub(mockPOIService, "discoverPOIs", () => Promise.resolve([]));
       stub(mockStoryService, "generateContent", () =>
         Promise.resolve({
-          id: "story-123",
-          content:
-            "Welcome to this historic downtown area, where centuries of history come alive. The nearby Riverside Park offers a peaceful retreat with stunning waterfront views...",
-          duration: 180,
+          id: "test-story-id",
+          content: "This is a test story content...",
+          duration: 120,
           status: "ready" as const,
+          generatedAt: new Date(),
         })
       );
 
-      const locationData: JourneyLocationRequest = {
+      const locationRequest: JourneyLocationRequest = {
         latitude: 40.7128,
         longitude: -74.006,
       };
 
-      const createResult = await controller.processLocation(locationData);
-      const storyId = createResult.seeds[0].id; // Get ID from first seed
+      await controller.processLocation(locationRequest);
 
       // Now retrieve the story
-      const story = controller.getStory(storyId);
+      const story = controller.getStory("test-story-id");
 
-      // Verify story structure
-      assertExists(story.storyId);
-      assertExists(story.content);
-      assertExists(story.audioUrl);
-      assertExists(story.duration);
-      assertExists(story.status);
-      assertExists(story.location);
-      assertExists(story.generatedAt);
-
-      assertEquals(story.storyId, storyId);
-      assertEquals(story.status, "ready");
-      assertEquals(typeof story.duration, "number");
-      assertEquals(story.duration > 0, true);
-      assertEquals(typeof story.content, "string");
-
-      // Verify the content includes POI information
-      const contentLower = story.content.toLowerCase();
-      const hasPOIContent =
-        contentLower.includes("historic downtown") ||
-        contentLower.includes("riverside park") ||
-        contentLower.includes("history") ||
-        contentLower.includes("downtown");
-
-      assertEquals(
-        hasPOIContent,
-        true,
-        "Content should include POI information"
-      );
+      assertExists(story);
+      assertEquals(story.storyId, "test-story-id");
+      assertEquals(story.content, "This is a test story content...");
+      assertEquals(story.duration, 120);
     });
 
-    it("should throw HttpException for non-existent story", () => {
-      // Note: getStory is synchronous, not async
+    it("should throw 404 for non-existent story", () => {
       try {
         controller.getStory("non-existent-id");
         throw new Error("Expected HttpException to be thrown");
       } catch (error) {
-        assertEquals(error instanceof HttpException, true);
         if (error instanceof HttpException) {
-          assertEquals(error.message.includes("Story not found"), true);
+          assertEquals(
+            error.message,
+            "404 - Story with ID 'non-existent-id' not found"
+          );
+        } else {
+          throw error;
+        }
+      }
+    });
+
+    it("should validate story ID format", () => {
+      try {
+        controller.getStory("ab"); // Too short
+        throw new Error("Expected HttpException to be thrown");
+      } catch (error) {
+        if (error instanceof HttpException) {
+          assertEquals(error.message, "400 - Invalid story ID format");
+        } else {
+          throw error;
+        }
+      }
+    });
+
+    it("should reject empty story ID", () => {
+      try {
+        controller.getStory("");
+        throw new Error("Expected HttpException to be thrown");
+      } catch (error) {
+        if (error instanceof HttpException) {
+          assertEquals(error.message, "400 - Story ID is required");
+        } else {
+          throw error;
         }
       }
     });

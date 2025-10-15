@@ -2,34 +2,19 @@ import { Injectable } from "@danet/core";
 import { LocationData } from "../../models/location.model.ts";
 import { GoogleMapsClient } from "../../shared/index.ts";
 import { ConfigurationService } from "../../configuration/index.ts";
-
-/**
- * Google Roads API response interfaces
- */
-export interface SnapToRoadsResponse {
-  snappedPoints: SnappedPoint[];
-  warningMessage?: string;
-}
-
-export interface SnappedPoint {
-  location: {
-    latitude: number;
-    longitude: number;
-  };
-  originalIndex?: number;
-  placeId: string;
-}
-
-export interface NearestRoadsResponse {
-  snappedPoints: SnappedPoint[];
-}
+import {
+  type SnapToRoadsResponse,
+  type NearestRoadsResponse,
+  type SnappedPoint,
+  type PlaceDetailsResponse,
+} from "../../shared/schemas/index.ts";
 
 export interface RoadInfo {
   roadName?: string;
   placeId: string;
   snappedLocation: {
-    latitude: number;
-    longitude: number;
+    lat: number;
+    lng: number;
   };
   originalLocation: {
     latitude: number;
@@ -93,8 +78,8 @@ export class GoogleRoadsService {
       const distanceFromOriginal = this.calculateDistance(
         location.latitude,
         location.longitude,
-        snappedPoint.location.latitude,
-        snappedPoint.location.longitude
+        snappedPoint.location.lat,
+        snappedPoint.location.lng
       );
 
       // Get road name using the place ID
@@ -145,8 +130,8 @@ export class GoogleRoadsService {
         const distanceFromOriginal = this.calculateDistance(
           location.latitude,
           location.longitude,
-          snappedPoint.location.latitude,
-          snappedPoint.location.longitude
+          snappedPoint.location.lat,
+          snappedPoint.location.lng
         );
 
         // Get road name using the place ID
@@ -197,7 +182,7 @@ export class GoogleRoadsService {
         // Prefer the name field, but fall back to formatted_address
         return (
           data.result.name ||
-          this.extractRoadNameFromAddress(data.result.formatted_address)
+          this.extractRoadNameFromAddress(data.result.formatted_address || "")
         );
       }
 

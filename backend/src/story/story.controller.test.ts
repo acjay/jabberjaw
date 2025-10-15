@@ -60,7 +60,7 @@ describe("StoryController", () => {
       const requestBody: ContentRequest = {
         input: {
           name: "Morton Arboretum",
-          type: "arboretum",
+          poiType: "arboretum",
           location: {
             latitude: 50,
             longitude: 50,

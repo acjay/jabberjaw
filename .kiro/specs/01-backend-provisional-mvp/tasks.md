@@ -134,7 +134,7 @@ This implementation plan focuses on building a story-based content generation sy
     - Add logging and monitoring for journey processing steps
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
-  - [ ] 5.2 Create Journey API endpoints
+  - [x] 5.2 Create Journey API endpoints
 
     - Implement POST /api/story-seeds-for-location endpoint as primary client interface
     - Implement GET /api/story/:storyId endpoint for full story content retrieval

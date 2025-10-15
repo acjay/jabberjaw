@@ -1,4 +1,4 @@
-import { LocationData } from './location.model.ts';
+import { LocationData } from "./location.model.ts";
 
 /**
  * Comprehensive enumeration of Point of Interest categories
@@ -6,79 +6,79 @@ import { LocationData } from './location.model.ts';
  */
 export enum POICategory {
   // Geographic features
-  TOWN = 'town',
-  COUNTY = 'county',
-  NEIGHBORHOOD = 'neighborhood',
-  WATERWAY = 'waterway',
-  MOUNTAIN = 'mountain',
-  VALLEY = 'valley',
-  PLATEAU = 'plateau',
+  TOWN = "town",
+  COUNTY = "county",
+  NEIGHBORHOOD = "neighborhood",
+  WATERWAY = "waterway",
+  MOUNTAIN = "mountain",
+  VALLEY = "valley",
+  PLATEAU = "plateau",
 
   // Infrastructure
-  MAJOR_ROAD = 'major_road',
-  BRIDGE = 'bridge',
-  LANDMARK = 'landmark',
-  AIRPORT = 'airport',
-  TRAIN_STATION = 'train_station',
-  REST_STOP = 'rest_stop',
+  MAJOR_ROAD = "major_road",
+  BRIDGE = "bridge",
+  LANDMARK = "landmark",
+  AIRPORT = "airport",
+  TRAIN_STATION = "train_station",
+  REST_STOP = "rest_stop",
 
   // Institutions
-  INSTITUTION = 'institution',
-  MUSEUM = 'museum',
-  LIBRARY = 'library',
-  CULTURAL_CENTER = 'cultural_center',
+  INSTITUTION = "institution",
+  MUSEUM = "museum",
+  LIBRARY = "library",
+  CULTURAL_CENTER = "cultural_center",
 
   // Natural areas
-  PARK = 'park',
-  WILDLIFE_REFUGE = 'wildlife_refuge',
-  SCENIC_OVERLOOK = 'scenic_overlook',
+  PARK = "park",
+  WILDLIFE_REFUGE = "wildlife_refuge",
+  SCENIC_OVERLOOK = "scenic_overlook",
 
   // Cultural sites
-  THEATER = 'theater',
-  MUSIC_VENUE = 'music_venue',
-  ART_INSTALLATION = 'art_installation',
+  THEATER = "theater",
+  MUSIC_VENUE = "music_venue",
+  ART_INSTALLATION = "art_installation",
 
   // Religious sites
-  RELIGIOUS_SITE = 'religious_site',
-  CHURCH = 'church',
-  TEMPLE = 'temple',
-  MONASTERY = 'monastery',
-  PILGRIMAGE_SITE = 'pilgrimage_site',
+  RELIGIOUS_SITE = "religious_site",
+  CHURCH = "church",
+  TEMPLE = "temple",
+  MONASTERY = "monastery",
+  PILGRIMAGE_SITE = "pilgrimage_site",
 
   // Industrial heritage
-  FACTORY = 'factory',
-  MILL = 'mill',
-  MINING_SITE = 'mining_site',
-  AGRICULTURAL_FACILITY = 'agricultural_facility',
+  FACTORY = "factory",
+  MILL = "mill",
+  MINING_SITE = "mining_site",
+  AGRICULTURAL_FACILITY = "agricultural_facility",
 
   // Sports and recreation
-  STADIUM = 'stadium',
-  RACE_TRACK = 'race_track',
-  GOLF_COURSE = 'golf_course',
-  SKI_RESORT = 'ski_resort',
+  STADIUM = "stadium",
+  RACE_TRACK = "race_track",
+  GOLF_COURSE = "golf_course",
+  SKI_RESORT = "ski_resort",
 
   // Military sites
-  MILITARY_BASE = 'military_base',
-  BATTLEFIELD = 'battlefield',
-  MEMORIAL = 'memorial',
-  FORT = 'fort',
+  MILITARY_BASE = "military_base",
+  BATTLEFIELD = "battlefield",
+  MEMORIAL = "memorial",
+  FORT = "fort",
 
   // Transportation history
-  HISTORIC_ROUTE = 'historic_route',
-  CANAL = 'canal',
-  RAILROAD_HERITAGE = 'railroad_heritage',
+  HISTORIC_ROUTE = "historic_route",
+  CANAL = "canal",
+  RAILROAD_HERITAGE = "railroad_heritage",
 
   // Geological features
-  CAVE = 'cave',
-  ROCK_FORMATION = 'rock_formation',
-  MINERAL_SITE = 'mineral_site',
-  FAULT_LINE = 'fault_line',
+  CAVE = "cave",
+  ROCK_FORMATION = "rock_formation",
+  MINERAL_SITE = "mineral_site",
+  FAULT_LINE = "fault_line",
 
   // Agricultural landmarks
-  FARM = 'farm',
-  VINEYARD = 'vineyard',
-  ORCHARD = 'orchard',
-  FARMERS_MARKET = 'farmers_market',
+  FARM = "farm",
+  VINEYARD = "vineyard",
+  ORCHARD = "orchard",
+  FARMERS_MARKET = "farmers_market",
 }
 
 /**
@@ -125,6 +125,9 @@ export interface PointOfInterest {
   /** Descriptive text about the POI */
   description: string;
 
+  /** Political unit hierarchy description (e.g., "Metuchen Borough, Middlesex County, New Jersey, United States") */
+  locationDescription?: string;
+
   /** Additional contextual metadata */
   metadata: POIMetadata;
 }
@@ -135,15 +138,19 @@ export interface PointOfInterest {
  */
 export function validatePointOfInterest(poi: PointOfInterest): boolean {
   // Validate required string fields
-  if (!poi.id || typeof poi.id !== 'string' || poi.id.trim().length === 0) {
+  if (!poi.id || typeof poi.id !== "string" || poi.id.trim().length === 0) {
     return false;
   }
 
-  if (!poi.name || typeof poi.name !== 'string' || poi.name.trim().length === 0) {
+  if (
+    !poi.name ||
+    typeof poi.name !== "string" ||
+    poi.name.trim().length === 0
+  ) {
     return false;
   }
 
-  if (!poi.description || typeof poi.description !== 'string') {
+  if (!poi.description || typeof poi.description !== "string") {
     return false;
   }
 
@@ -155,16 +162,18 @@ export function validatePointOfInterest(poi: PointOfInterest): boolean {
   // Validate location coordinates
   if (
     !poi.location ||
-    typeof poi.location.latitude !== 'number' ||
-    typeof poi.location.longitude !== 'number' ||
-    poi.location.latitude < -90 || poi.location.latitude > 90 ||
-    poi.location.longitude < -180 || poi.location.longitude > 180
+    typeof poi.location.latitude !== "number" ||
+    typeof poi.location.longitude !== "number" ||
+    poi.location.latitude < -90 ||
+    poi.location.latitude > 90 ||
+    poi.location.longitude < -180 ||
+    poi.location.longitude > 180
   ) {
     return false;
   }
 
   // Validate metadata structure
-  if (!poi.metadata || typeof poi.metadata !== 'object') {
+  if (!poi.metadata || typeof poi.metadata !== "object") {
     return false;
   }
 
@@ -175,21 +184,22 @@ export function validatePointOfInterest(poi: PointOfInterest): boolean {
   // Validate optional numeric fields if present
   if (
     poi.metadata.population !== undefined &&
-    (typeof poi.metadata.population !== 'number' || poi.metadata.population < 0)
+    (typeof poi.metadata.population !== "number" || poi.metadata.population < 0)
   ) {
     return false;
   }
 
   if (
     poi.metadata.foundedYear !== undefined &&
-    (typeof poi.metadata.foundedYear !== 'number' || poi.metadata.foundedYear < 0)
+    (typeof poi.metadata.foundedYear !== "number" ||
+      poi.metadata.foundedYear < 0)
   ) {
     return false;
   }
 
   if (
     poi.metadata.elevation !== undefined &&
-    typeof poi.metadata.elevation !== 'number'
+    typeof poi.metadata.elevation !== "number"
   ) {
     return false;
   }
@@ -202,9 +212,7 @@ export function validatePointOfInterest(poi: PointOfInterest): boolean {
  */
 export function isPointOfInterest(obj: any): obj is PointOfInterest {
   return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    validatePointOfInterest(obj)
+    typeof obj === "object" && obj !== null && validatePointOfInterest(obj)
   );
 }
 

@@ -1,12 +1,15 @@
-import { Injectable } from '@danet/core';
-import { GeneratedContentDto } from '../dto/index.ts';
-import { TextPOIDescriptionDto } from '../dto/text-poi-description.dto.ts';
-import { StructuredPOIDto } from '../dto/structured-poi.dto.ts';
+import { Injectable } from "@danet/core";
+import { GeneratedContentDto } from "../dto/index.ts";
+import { StructuredPOIDto } from "../dto/structured-poi.dto.ts";
+import {
+  StructuredPOI,
+  TextPOIDescription,
+} from "../../shared/schemas/index.ts";
 
 /**
  * Input data type for content generation - can be either text description or structured POI
  */
-export type ContentInputData = TextPOIDescriptionDto | StructuredPOIDto | { description: string };
+export type ContentInputData = TextPOIDescription | StructuredPOI;
 
 /**
  * Extended stored content interface that includes storage-specific metadata
@@ -68,7 +71,11 @@ export class ContentStorageService {
   /**
    * Store generated content with prompt and input data
    */
-  store(content: GeneratedContentDto, prompt: string, inputData: ContentInputData): StoredContent {
+  store(
+    content: GeneratedContentDto,
+    prompt: string,
+    inputData: ContentInputData
+  ): StoredContent {
     const now = new Date();
     const storedContent: StoredContent = {
       ...content,
@@ -129,8 +136,14 @@ export class ContentStorageService {
    */
   getStats(): StorageStats {
     const contents = Array.from(this.contents.values());
-    const totalSize = contents.reduce((sum, content) => sum + content.content.length, 0);
-    const totalAccesses = contents.reduce((sum, content) => sum + content.accessCount, 0);
+    const totalSize = contents.reduce(
+      (sum, content) => sum + content.content.length,
+      0
+    );
+    const totalAccesses = contents.reduce(
+      (sum, content) => sum + content.accessCount,
+      0
+    );
 
     let mostAccessedId: string | undefined;
     let maxAccesses = 0;
@@ -145,7 +158,8 @@ export class ContentStorageService {
     return {
       total: contents.length,
       totalSize,
-      averageSize: contents.length > 0 ? Math.round(totalSize / contents.length) : 0,
+      averageSize:
+        contents.length > 0 ? Math.round(totalSize / contents.length) : 0,
       mostAccessedId,
       totalAccesses,
     };
@@ -180,17 +194,26 @@ export class ContentStorageService {
   /**
    * Find content by location proximity (for structured POI data)
    */
-  findByLocation(latitude: number, longitude: number, radiusKm = 10, limit = 5): StoredContent[] {
+  findByLocation(
+    latitude: number,
+    longitude: number,
+    radiusKm = 10,
+    limit = 5
+  ): StoredContent[] {
     const allContents = Array.from(this.contents.values());
-    const nearbyContents: Array<{ content: StoredContent; distance: number }> = [];
+    const nearbyContents: Array<{ content: StoredContent; distance: number }> =
+      [];
 
     for (const content of allContents) {
-      if (this.isStructuredPOI(content.inputData) && content.inputData.location?.coordinates) {
+      if (
+        this.isStructuredPOI(content.inputData) &&
+        content.inputData.location?.coordinates
+      ) {
         const distance = this.calculateDistance(
           latitude,
           longitude,
           content.inputData.location.coordinates.latitude,
-          content.inputData.location.coordinates.longitude,
+          content.inputData.location.coordinates.longitude
         );
 
         if (distance <= radiusKm) {
@@ -246,7 +269,10 @@ export class ContentStorageService {
    * Calculate similarity score between two input data objects
    * Returns a score from 0 (no similarity) to 1 (identical)
    */
-  private calculateSimilarityScore(input1: ContentInputData, input2: ContentInputData): number {
+  private calculateSimilarityScore(
+    input1: ContentInputData,
+    input2: ContentInputData
+  ): number {
     // Exact match gets highest score
     if (JSON.stringify(input1) === JSON.stringify(input2)) {
       return 1.0;
@@ -266,7 +292,10 @@ export class ContentStorageService {
       if (desc1Lower === desc2Lower) {
         score += 0.8;
       } // Substring match
-      else if (desc1Lower.includes(desc2Lower) || desc2Lower.includes(desc1Lower)) {
+      else if (
+        desc1Lower.includes(desc2Lower) ||
+        desc2Lower.includes(desc1Lower)
+      ) {
         score += 0.6;
       } // Word overlap
       else {
@@ -274,7 +303,8 @@ export class ContentStorageService {
         const words2 = desc2Lower.split(/\s+/);
         const commonWords = words1.filter((word) => words2.includes(word));
         if (commonWords.length > 0) {
-          score += 0.3 * (commonWords.length / Math.max(words1.length, words2.length));
+          score +=
+            0.3 * (commonWords.length / Math.max(words1.length, words2.length));
         }
       }
     }
@@ -319,7 +349,10 @@ export class ContentStorageService {
    * Extract description text from input data
    */
   private extractDescription(inputData: ContentInputData): string | null {
-    if ('description' in inputData && typeof inputData.description === 'string') {
+    if (
+      "description" in inputData &&
+      typeof inputData.description === "string"
+    ) {
       return inputData.description;
     }
     if (this.isStructuredPOI(inputData) && inputData.name) {
@@ -331,20 +364,30 @@ export class ContentStorageService {
   /**
    * Type guard to check if input data is structured POI
    */
-  private isStructuredPOI(inputData: ContentInputData): inputData is StructuredPOIDto {
-    return 'name' in inputData && 'type' in inputData;
+  private isStructuredPOI(
+    inputData: ContentInputData
+  ): inputData is StructuredPOIDto {
+    return "name" in inputData && "type" in inputData;
   }
 
   /**
    * Calculate distance between two coordinates using Haversine formula
    */
-  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
     const R = 6371; // Earth's radius in kilometers
     const dLat = this.toRadians(lat2 - lat1);
     const dLon = this.toRadians(lon2 - lon1);
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.toRadians(lat1)) *
+        Math.cos(this.toRadians(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
@@ -379,8 +422,10 @@ export class ContentStorageService {
 
     // If still over limit, remove least recently accessed items
     if (this.contents.size >= this.cacheConfig.maxItems) {
-      const sortedContents = Array.from(this.contents.entries())
-        .sort(([, a], [, b]) => a.lastAccessedAt.getTime() - b.lastAccessedAt.getTime());
+      const sortedContents = Array.from(this.contents.entries()).sort(
+        ([, a], [, b]) =>
+          a.lastAccessedAt.getTime() - b.lastAccessedAt.getTime()
+      );
 
       const itemsToRemove = this.contents.size - this.cacheConfig.maxItems + 1;
       for (let i = 0; i < itemsToRemove; i++) {

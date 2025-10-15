@@ -175,9 +175,6 @@ export interface StoredStory {
 
   /** Story seed information */
   storySeed: StorySeed;
-
-  /** Optional URL to the generated audio file */
-  audioUrl?: string;
 }
 
 /**
@@ -382,14 +379,6 @@ export function validateStoredStory(story: StoredStory): boolean {
     return false;
   }
 
-  // Validate optional fields if present
-  if (
-    story.audioUrl !== undefined &&
-    (typeof story.audioUrl !== "string" || story.audioUrl.trim().length === 0)
-  ) {
-    return false;
-  }
-
   return true;
 }
 
@@ -435,8 +424,7 @@ export function isStoredStory(obj: unknown): obj is StoredStory {
 export function generatedStoryContentToStoredStory(
   generated: GeneratedStoryContent,
   pois: PointOfInterest[],
-  storySeed: StorySeed,
-  audioUrl?: string
+  storySeed: StorySeed
 ): StoredStory {
   return {
     storyId: generated.storyId,
@@ -451,7 +439,6 @@ export function generatedStoryContentToStoredStory(
     storyTitle: generated.storyTitle,
     storySummary: generated.storySummary,
     storySeed,
-    audioUrl,
   };
 }
 

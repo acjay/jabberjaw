@@ -53,7 +53,10 @@ describe("StoryService", () => {
   describe("generateContent", () => {
     it("should generate content for text description", async () => {
       const request: ContentRequest = {
-        input: { description: "The town of Metuchen, NJ, USA" },
+        input: {
+          type: "TextPOIDescription",
+          description: "The town of Metuchen, NJ, USA",
+        },
         targetDuration: 180,
         contentStyle: "mixed",
       };
@@ -71,7 +74,7 @@ describe("StoryService", () => {
       const request: ContentRequest = {
         input: {
           name: "Morton Arboretum",
-          type: "arboretum",
+          poiType: "arboretum",
           location: {
             latitude: 41.8158,
             longitude: -88.0705,
@@ -91,13 +94,19 @@ describe("StoryService", () => {
 
     it("should return cached content for similar requests", async () => {
       const request1: ContentRequest = {
-        input: { description: "The town of Metuchen, NJ, USA" },
+        input: {
+          type: "TextPOIDescription",
+          description: "The town of Metuchen, NJ, USA",
+        },
         targetDuration: 180,
         contentStyle: "mixed",
       };
 
       const request2: ContentRequest = {
-        input: { description: "The town of Metuchen, NJ, USA" },
+        input: {
+          type: "TextPOIDescription",
+          description: "The town of Metuchen, NJ, USA",
+        },
         targetDuration: 180,
         contentStyle: "mixed",
       };
@@ -113,7 +122,10 @@ describe("StoryService", () => {
   describe("getContent", () => {
     it("should retrieve stored content by ID", async () => {
       const request: ContentRequest = {
-        input: { description: "Test location" },
+        input: {
+          type: "TextPOIDescription",
+          description: "Test location",
+        },
         targetDuration: 180,
         contentStyle: "mixed",
       };

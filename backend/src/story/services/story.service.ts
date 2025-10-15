@@ -10,8 +10,9 @@ import { ConfigurationService } from "../../configuration/index.ts";
 import {
   ContentRequest,
   GeneratedContent,
+  StructuredPOI,
 } from "../../shared/schemas/index.ts";
-import { convertContentRequestToDto } from "../../shared/utils/schema-bridge.ts";
+import { StorySeed } from "../../shared/schemas/content.schema.ts";
 
 @Injectable()
 export class StoryService {
@@ -31,12 +32,14 @@ export class StoryService {
     }
   }
 
-  async generateContent(request: ContentRequest): Promise<GeneratedContent> {
-    // Convert Zod schema to legacy DTO for compatibility with existing services
-    const legacyRequest = convertContentRequestToDto(request);
+  async generateStorySeeds(location: StructuredPOI): Promise<StorySeed[]> {
+    // TODO: implment
+    return {} as StorySeed;
+  }
 
+  async generateContent(request: ContentRequest): Promise<GeneratedContent> {
     // Check for similar existing content first
-    const inputData = legacyRequest.input;
+    const inputData = request.input;
     const similarContent = this.storageService.findSimilar(inputData, 1);
 
     if (similarContent.length > 0) {
@@ -53,10 +56,10 @@ export class StoryService {
 
     // Generate new content using legacy DTO
     const llmService = await this.getLLMService();
-    const llmResponse = await llmService.generateContent(legacyRequest);
+    const llmResponse = await llmService.generateFullStory(request);
     const prompt = llmService.generatePrompt(
-      legacyRequest.input,
-      legacyRequest.contentStyle!
+      request.input,
+      request.contentStyle!
     );
 
     const generatedContent: GeneratedContent = {
@@ -75,7 +78,7 @@ export class StoryService {
         estimatedDuration: generatedContent.duration,
         generatedAt: generatedContent.generatedAt!,
         sources: llmResponse.sources,
-        contentStyle: legacyRequest.contentStyle,
+        contentStyle: request.contentStyle,
       },
       prompt,
       inputData

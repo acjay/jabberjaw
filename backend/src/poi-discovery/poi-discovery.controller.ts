@@ -101,6 +101,7 @@ export class POIDiscoveryController {
       category: poi.category as any, // Type assertion for now
       location: poi.location,
       description: poi.description || "",
+      locationDescription: poi.locationDescription,
       metadata: {
         significanceScore: poi.significance || 0.5,
         significance: poi.tags || [], // Use tags as significance array
@@ -124,6 +125,7 @@ export class POIDiscoveryController {
       distance: undefined, // Not available in current POIMetadata
       significance: poi.metadata?.significanceScore,
       description: poi.description,
+      locationDescription: poi.locationDescription,
       tags: poi.metadata?.significance, // Use significance array as tags
     }));
 
