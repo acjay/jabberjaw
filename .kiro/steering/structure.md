@@ -18,6 +18,7 @@ The backend follows a modular architecture using Danet's module system:
 backend/src/
 ├── app.module.ts                    # Root application module
 ├── main.ts                          # Application entry point
+├── scripts/                         # Demo scripts
 ├── shared/                          # Shared utilities and schemas
 │   ├── schemas/                    # Zod validation schemas
 │   │   ├── location.schema.ts
