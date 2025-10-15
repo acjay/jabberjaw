@@ -1,14 +1,9 @@
 import { Injectable } from "@danet/core";
-import {
-  LLMService,
-  LLMResponse,
-  StorySeedsResponse,
-  StorySeed,
-} from "./llm.service.ts";
+import { LLMService, LLMResponse, StorySeed } from "./llm.service.ts";
 import { OpenAIClient } from "../../shared/index.ts";
 import { ConfigurationService } from "../../configuration/index.ts";
 import {
-  ContentRequest,
+  FullStoryRequest,
   ContentStyle,
   type ContentStyleType,
 } from "../../shared/schemas/index.ts";
@@ -61,7 +56,7 @@ export class OpenAILLMService extends LLMService {
     }
   }
 
-  async generateFullStory(request: ContentRequest): Promise<LLMResponse> {
+  async generateFullStory(request: FullStoryRequest): Promise<LLMResponse> {
     await this.ensureInitialized();
 
     if (!this.apiKey) {
@@ -70,7 +65,11 @@ export class OpenAILLMService extends LLMService {
       );
     }
 
-    const prompt = this.generatePrompt(request.input, request.contentStyle!);
+    const prompt = this.generatePrompt(
+      request.input,
+      request.contentStyle!,
+      request.storySeed
+    );
 
     try {
       const content = await this.callOpenAI(prompt);
@@ -90,9 +89,7 @@ export class OpenAILLMService extends LLMService {
     }
   }
 
-  async generateStorySeedsForPOI(
-    poiDescription: string
-  ): Promise<StorySeedsResponse> {
+  async generateStorySeedsForPOI(poiDescription: string): Promise<StorySeed[]> {
     await this.ensureInitialized();
 
     if (!this.apiKey) {
@@ -107,10 +104,7 @@ export class OpenAILLMService extends LLMService {
       const content = await this.callOpenAI(prompt);
       const seeds = this.parseStorySeedsResponse(content);
 
-      return {
-        seeds,
-        sources: ["OpenAI", this.model!],
-      };
+      return seeds;
     } catch (error) {
       console.error("OpenAI API error:", error);
       throw new Error(
@@ -170,8 +164,9 @@ The point of interest is: ${poiDescription}`;
   }
 
   generatePrompt(
-    input: ContentRequest["input"],
-    style: ContentStyleType
+    input: FullStoryRequest["input"],
+    style: ContentStyleType,
+    storySeed?: FullStoryRequest["storySeed"]
   ): string {
     const basePrompt = `Create an engaging 3-minute podcast-style narration about `;
 
@@ -192,7 +187,17 @@ The point of interest is: ${poiDescription}`;
 
     const styleInstructions = this.getStyleInstructions(style);
 
-    return `${basePrompt}${subject}. ${context}${styleInstructions}
+    let storySeedContext = "";
+    if (storySeed) {
+      storySeedContext = `
+
+Story Focus: "${storySeed.title}"
+Story Summary: ${storySeed.summary}
+
+Please expand on this story concept, using the title and summary as the foundation for your narration. `;
+    }
+
+    return `${basePrompt}${subject}. ${context}${styleInstructions}${storySeedContext}
 
 The narration should be:
 - Approximately 3 minutes when spoken (around 450-500 words)

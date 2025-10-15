@@ -4,7 +4,7 @@ import { HttpException } from "@danet/core";
 import { StoryController } from "./story.controller.ts";
 import { StoryService } from "./services/story.service.ts";
 import { stub } from "@std/testing/mock";
-import type { ContentRequest } from "../shared/schemas/index.ts";
+import type { FullStoryRequest } from "../shared/schemas/index.ts";
 
 describe("StoryController", () => {
   let controller: StoryController;
@@ -29,7 +29,7 @@ describe("StoryController", () => {
         })
       );
 
-      const requestBody: ContentRequest = {
+      const requestBody: FullStoryRequest = {
         input: {
           description: "The town of Metuchen, NJ, USA",
         },
@@ -39,7 +39,7 @@ describe("StoryController", () => {
 
       const result = await controller.generateContent(requestBody);
 
-      assertExists(result.id);
+      assertExists(result.storyId);
       assertExists(result.content);
       assertExists(result.duration);
       assertEquals(result.status, "ready");
@@ -57,7 +57,7 @@ describe("StoryController", () => {
         })
       );
 
-      const requestBody: ContentRequest = {
+      const requestBody: FullStoryRequest = {
         input: {
           name: "Morton Arboretum",
           poiType: "arboretum",
@@ -73,7 +73,7 @@ describe("StoryController", () => {
 
       const result = await controller.generateContent(requestBody);
 
-      assertExists(result.id);
+      assertExists(result.storyId);
       assertExists(result.content);
       assertEquals(result.status, "ready");
     });
@@ -84,7 +84,7 @@ describe("StoryController", () => {
         throw new Error("Service error");
       });
 
-      const requestBody: ContentRequest = {
+      const requestBody: FullStoryRequest = {
         input: {
           description: "Test location",
         },

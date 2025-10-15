@@ -12,10 +12,10 @@ import { Body, ReturnedSchema } from "@danet/zod";
 import { StoryService } from "./services/story.service.ts";
 import { StoredContent } from "./services/content-storage.service.ts";
 import {
-  ContentRequestSchema,
-  GeneratedContentSchema,
-  type ContentRequest,
-  type GeneratedContent,
+  FullStoryRequestSchema,
+  FullStorySchema,
+  type FullStoryRequest,
+  type FullStory,
 } from "../shared/schemas/index.ts";
 
 @Controller("api/content")
@@ -23,11 +23,11 @@ export class StoryController {
   constructor(private readonly storyService: StoryService) {}
 
   @Post("generate")
-  @ReturnedSchema(GeneratedContentSchema)
+  @ReturnedSchema(FullStorySchema)
   async generateContent(
-    @Body(ContentRequestSchema) body: ContentRequest
-  ): Promise<GeneratedContent> {
-    return await this.storyService.generateContent(body);
+    @Body(FullStoryRequestSchema) body: FullStoryRequest
+  ): Promise<FullStory> {
+    return await this.storyService.generateFullStory(body);
   }
 
   @Get(":id")

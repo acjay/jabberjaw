@@ -1,8 +1,5 @@
 import { z } from "zod";
-import {
-  StorySeedsResponseSchema,
-  StoryResponseSchema,
-} from "./content.schema.ts";
+import { StorySeedsResponseSchema, FullStorySchema } from "./content.schema.ts";
 
 // Journey location request schema
 export const JourneyLocationRequestSchema = z.object({

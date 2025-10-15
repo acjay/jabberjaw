@@ -5,7 +5,7 @@ import { OpenAILLMService } from "./openai-llm.service.ts";
 import { OpenAIClient } from "../../shared/clients/openai-client.ts";
 import { ConfigurationService } from "../../configuration/index.ts";
 import {
-  ContentRequest,
+  FullStoryRequest,
   ContentStyle,
   type ContentStyleType,
 } from "../../shared/schemas/index.ts";
@@ -53,7 +53,7 @@ describe("OpenAILLMService", () => {
           },
         })
       );
-      const request: ContentRequest = {
+      const request: FullStoryRequest = {
         input: {
           type: "TextPOIDescription",
           description: "The town of Metuchen, NJ",
@@ -75,7 +75,7 @@ describe("OpenAILLMService", () => {
     });
 
     it("should generate prompt for structured POI input", () => {
-      const request: ContentRequest = {
+      const request: FullStoryRequest = {
         input: {
           type: "StructuredPOI",
           name: "Morton Arboretum",
@@ -102,7 +102,7 @@ describe("OpenAILLMService", () => {
     });
 
     it("should include different style instructions", () => {
-      const textInput: ContentRequest = {
+      const textInput: FullStoryRequest = {
         input: { type: "TextPOIDescription", description: "Test location" },
         targetDuration: 180,
         contentStyle: "mixed",
@@ -165,29 +165,28 @@ TITLE: Railroad Junction Historical Significance`,
       );
 
       assertExists(result);
-      assertEquals(result.seeds.length, 3);
-      assertEquals(result.sources?.includes("OpenAI"), true);
+      assertEquals(result.length, 3);
 
       // Check first seed
       assertEquals(
-        result.seeds[0].title,
+        result[0].title,
         "Historic Courthouse Construction and Legacy"
       );
       assertEquals(
-        result.seeds[0].summary.includes("courthouse was built in 1892"),
+        result[0].summary.includes("courthouse was built in 1892"),
         true
       );
 
       // Check second seed
-      assertEquals(result.seeds[1].title, "Famous Author's Local Connection");
-      assertEquals(result.seeds[1].summary.includes("famous author"), true);
+      assertEquals(result[1].title, "Famous Author's Local Connection");
+      assertEquals(result[1].summary.includes("famous author"), true);
 
       // Check third seed
       assertEquals(
-        result.seeds[2].title,
+        result[2].title,
         "Railroad Junction Historical Significance"
       );
-      assertEquals(result.seeds[2].summary.includes("railroad junction"), true);
+      assertEquals(result[2].summary.includes("railroad junction"), true);
     });
 
     it("should handle 'no story ideas' response", async () => {
@@ -215,7 +214,7 @@ TITLE: Railroad Junction Historical Significance`,
       );
 
       assertExists(result);
-      assertEquals(result.seeds.length, 0);
+      assertEquals(result.length, 0);
       assertEquals(result.sources?.includes("OpenAI"), true);
     });
 
@@ -243,7 +242,7 @@ TITLE: Railroad Junction Historical Significance`,
       const result = await service.generateStorySeedsForPOI("Some location");
 
       assertExists(result);
-      assertEquals(result.seeds.length, 0);
+      assertEquals(result.length, 0);
       assertEquals(result.sources?.includes("OpenAI"), true);
     });
   });

@@ -11,10 +11,10 @@ import { JourneyService } from "./journey.service.ts";
 import {
   JourneyLocationRequestSchema,
   JourneyLocationResponseSchema,
-  StoryResponseSchema,
+  FullStorySchema,
   type JourneyLocationRequest,
   type JourneyLocationResponse,
-  type StoryResponse,
+  type FullStory,
   type HealthResponse,
 } from "../shared/schemas/index.ts";
 
@@ -60,8 +60,8 @@ export class JourneyController {
   }
 
   @Get("story/:id")
-  @ReturnedSchema(StoryResponseSchema)
-  getStory(@Param("id") id: string): StoryResponse {
+  @ReturnedSchema(FullStorySchema)
+  async getStory(@Param("id") id: string): Promise<FullStory> {
     if (!id || id.trim() === "") {
       throw new HttpException(HTTP_STATUS.BAD_REQUEST, "Story ID is required");
     }
@@ -74,7 +74,7 @@ export class JourneyController {
       );
     }
 
-    const story = this.journeyService.getStory(id);
+    const story = await this.journeyService.getFullStory(id);
 
     if (!story) {
       throw new HttpException(

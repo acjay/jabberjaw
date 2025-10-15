@@ -1,7 +1,7 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { beforeEach, describe, it } from "@std/testing/bdd";
 import { MockLLMService } from "./llm.service.ts";
-import { ContentRequest, ContentStyle } from "../../shared/schemas/index.ts";
+import { FullStoryRequest, ContentStyle } from "../../shared/schemas/index.ts";
 
 describe("MockLLMService", () => {
   let service: MockLLMService;
@@ -17,11 +17,10 @@ describe("MockLLMService", () => {
       );
 
       assertExists(result);
-      assertEquals(result.seeds.length, 3);
-      assertEquals(result.sources?.includes("Mock LLM Service"), true);
+      assertEquals(result.length, 3);
 
       // Check that all seeds have titles and summaries
-      for (const seed of result.seeds) {
+      for (const seed of result) {
         assertExists(seed.title);
         assertExists(seed.summary);
         assertEquals(typeof seed.title, "string");
@@ -31,18 +30,15 @@ describe("MockLLMService", () => {
       }
 
       // Check specific mock content
-      assertEquals(result.seeds[0].title, "Historic Founding Story");
-      assertEquals(
-        result.seeds[1].title,
-        "Notable Historical Figure Connection"
-      );
-      assertEquals(result.seeds[2].title, "Architectural Significance");
+      assertEquals(result[0].title, "Historic Founding Story");
+      assertEquals(result[1].title, "Notable Historical Figure Connection");
+      assertEquals(result[2].title, "Architectural Significance");
     });
   });
 
   describe("generateFullStory", () => {
     it("should generate mock content for text description", async () => {
-      const request: ContentRequest = {
+      const request: FullStoryRequest = {
         input: {
           type: "TextPOIDescription",
           description: "The town of Metuchen, NJ",
@@ -61,7 +57,7 @@ describe("MockLLMService", () => {
     });
 
     it("should generate mock content for structured POI", async () => {
-      const request: ContentRequest = {
+      const request: FullStoryRequest = {
         input: {
           type: "StructuredPOI",
           name: "Morton Arboretum",

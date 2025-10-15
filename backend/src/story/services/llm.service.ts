@@ -1,6 +1,6 @@
 import { Injectable } from "@danet/core";
 import {
-  ContentRequest,
+  FullStoryRequest,
   ContentStyle,
   type ContentStyleType,
 } from "../../shared/schemas/index.ts";
@@ -16,20 +16,16 @@ export interface StorySeed {
   summary: string;
 }
 
-export interface StorySeedsResponse {
-  seeds: StorySeed[];
-  sources?: string[];
-}
-
 @Injectable()
 export abstract class LLMService {
-  abstract generateFullStory(request: ContentRequest): Promise<LLMResponse>;
+  abstract generateFullStory(request: FullStoryRequest): Promise<LLMResponse>;
   abstract generateStorySeedsForPOI(
     poiDescription: string
-  ): Promise<StorySeedsResponse>;
+  ): Promise<StorySeed[]>;
   abstract generatePrompt(
-    input: ContentRequest["input"],
-    style: ContentStyleType
+    input: FullStoryRequest["input"],
+    style: ContentStyleType,
+    storySeed?: FullStoryRequest["storySeed"]
   ): string;
 }
 
@@ -37,8 +33,12 @@ export abstract class LLMService {
 export class MockLLMService extends LLMService {
   private prompts = new Map<string, string>();
 
-  async generateFullStory(request: ContentRequest): Promise<LLMResponse> {
-    const prompt = this.generatePrompt(request.input, request.contentStyle!);
+  async generateFullStory(request: FullStoryRequest): Promise<LLMResponse> {
+    const prompt = this.generatePrompt(
+      request.input,
+      request.contentStyle!,
+      request.storySeed
+    );
 
     // Store the prompt for analysis
     const promptId = crypto.randomUUID();
@@ -61,7 +61,7 @@ export class MockLLMService extends LLMService {
 
   async generateStorySeedsForPOI(
     _poiDescription: string
-  ): Promise<StorySeedsResponse> {
+  ): Promise<StorySeed[]> {
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 150));
 
@@ -81,15 +81,13 @@ export class MockLLMService extends LLMService {
       },
     ];
 
-    return {
-      seeds,
-      sources: ["Mock LLM Service", "Generated Story Seeds"],
-    };
+    return seeds;
   }
 
   generatePrompt(
-    input: ContentRequest["input"],
-    style: ContentStyleType
+    input: FullStoryRequest["input"],
+    style: ContentStyleType,
+    storySeed?: FullStoryRequest["storySeed"]
   ): string {
     const basePrompt = `Create an engaging 3-minute podcast-style narration about `;
 
@@ -109,7 +107,17 @@ export class MockLLMService extends LLMService {
 
     const styleInstructions = this.getStyleInstructions(style);
 
-    return `${basePrompt}${subject}. ${context}${styleInstructions}
+    let storySeedContext = "";
+    if (storySeed) {
+      storySeedContext = `
+
+Story Focus: "${storySeed.title}"
+Story Summary: ${storySeed.summary}
+
+Please expand on this story concept, using the title and summary as the foundation for your narration. `;
+    }
+
+    return `${basePrompt}${subject}. ${context}${styleInstructions}${storySeedContext}
 
 The narration should be:
 - Approximately 3 minutes when spoken (around 450-500 words)
@@ -136,7 +144,7 @@ Focus on making the content memorable and engaging for travelers passing through
   }
 
   private generateMockContent(
-    input: ContentRequest["input"],
+    input: FullStoryRequest["input"],
     style: ContentStyleType
   ): string {
     let subject: string;

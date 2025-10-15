@@ -38,15 +38,17 @@ describe("Journey Integration", () => {
         ])
       );
 
-      // Mock story service to return generated content
-      stub(mockStoryService, "generateContent", () =>
-        Promise.resolve({
-          id: "story-1",
-          content: "This is a test story about Test Town...",
-          duration: 180,
-          status: "ready" as const,
-          generatedAt: new Date(),
-        })
+      // Mock story service to return generated story seeds
+      stub(mockStoryService, "generateStorySeeds", () =>
+        Promise.resolve([
+          {
+            storyId: "story-1",
+            title: "Historic Founding Story",
+            summary: "This is a test story about Test Town...",
+            location: { latitude: 40.7128, longitude: -74.006 },
+            createdAt: new Date(),
+          },
+        ])
       );
 
       const request: JourneyLocationRequest = {
@@ -59,7 +61,7 @@ describe("Journey Integration", () => {
       assertExists(result.seeds);
       assertEquals(Array.isArray(result.seeds), true);
       assertEquals(result.seeds.length, 1);
-      assertEquals(result.seeds[0].title, "Story for Near Test Town");
+      assertEquals(result.seeds[0].title, "Historic Founding Story");
       assertExists(result.location);
       assertEquals(result.location.latitude, 40.7128);
       assertEquals(result.location.longitude, -74.006);
@@ -68,17 +70,6 @@ describe("Journey Integration", () => {
     it("should handle locations with no POIs", async () => {
       // Mock POI service to return empty array
       stub(mockPOIService, "discoverPOIs", () => Promise.resolve([]));
-
-      // Mock story service to return generated content
-      stub(mockStoryService, "generateContent", () =>
-        Promise.resolve({
-          id: "story-2",
-          content: "This is a fallback story...",
-          duration: 60,
-          status: "ready" as const,
-          generatedAt: new Date(),
-        })
-      );
 
       const request: JourneyLocationRequest = {
         latitude: 0,
@@ -90,6 +81,7 @@ describe("Journey Integration", () => {
       assertExists(result.seeds);
       assertEquals(result.seeds.length, 1);
       assertExists(result.seeds[0].title);
+      assertEquals(result.seeds[0].title, "Local Area Information");
     });
 
     it("should validate latitude bounds", async () => {
@@ -122,33 +114,22 @@ describe("Journey Integration", () => {
   });
 
   describe("getStory", () => {
-    it("should retrieve an existing story", async () => {
-      // First, create a story by calling storySeedsForLocation
-      stub(mockPOIService, "discoverPOIs", () => Promise.resolve([]));
-      stub(mockStoryService, "generateContent", () =>
-        Promise.resolve({
-          id: "test-story-id",
-          content: "This is a test story content...",
-          duration: 120,
-          status: "ready" as const,
-          generatedAt: new Date(),
-        })
-      );
-
-      const locationRequest: JourneyLocationRequest = {
-        latitude: 40.7128,
-        longitude: -74.006,
-      };
-
-      await controller.processLocation(locationRequest);
-
-      // Now retrieve the story
-      const story = controller.getStory("test-story-id");
-
-      assertExists(story);
-      assertEquals(story.storyId, "test-story-id");
-      assertEquals(story.content, "This is a test story content...");
-      assertEquals(story.duration, 120);
+    it("should throw 404 for any story ID since no stories are stored", () => {
+      // Since the refactored journey service no longer stores full stories,
+      // it should throw 404 for any story ID
+      try {
+        controller.getStory("test-story-id");
+        throw new Error("Expected HttpException to be thrown");
+      } catch (error) {
+        if (error instanceof HttpException) {
+          assertEquals(
+            error.message,
+            "404 - Story with ID 'test-story-id' not found"
+          );
+        } else {
+          throw error;
+        }
+      }
     });
 
     it("should throw 404 for non-existent story", () => {
