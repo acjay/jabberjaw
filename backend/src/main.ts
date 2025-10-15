@@ -2,7 +2,7 @@ import { DanetApplication } from "@danet/core";
 import { SwaggerModule, SpecBuilder } from "@danet/swagger";
 import { load } from "@std/dotenv";
 import { AppModule } from "./app.module.ts";
-import { ConfigurationService } from "./shared/configuration/index.ts";
+import { ConfigurationService } from "./configuration/index.ts";
 
 // Load environment variables
 await load({ export: true });

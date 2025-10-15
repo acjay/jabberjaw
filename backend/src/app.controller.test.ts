@@ -2,7 +2,7 @@ import { assertObjectMatch } from "@std/assert";
 import { describe, it, beforeEach } from "@std/testing/bdd";
 import { AppController } from "./app.controller.ts";
 import { AppService } from "./app.service.ts";
-import { ConfigurationService } from "./shared/configuration/index.ts";
+import { ConfigurationService } from "./configuration/index.ts";
 
 describe("AppController", () => {
   let appController: AppController;

@@ -5,7 +5,7 @@ import { POIIdentificationService } from "./poi-identification.service.ts";
 import { OverpassClient } from "../../shared/clients/overpass-client.ts";
 import { GoogleMapsClient } from "../../shared/clients/google-maps-client.ts";
 import { NominatimClient } from "../../shared/clients/nominatim-client.ts";
-import { ConfigurationService } from "../../shared/configuration/index.ts";
+import { ConfigurationService } from "../../configuration/index.ts";
 import { LocationData } from "../../models/location.model.ts";
 import { POICategory } from "../../models/poi.model.ts";
 

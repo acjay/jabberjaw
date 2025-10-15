@@ -6,7 +6,7 @@ import { MockLLMService } from "./llm.service.ts";
 import { OpenAILLMService } from "./openai-llm.service.ts";
 import { OpenAIClient } from "../../shared/clients/openai-client.ts";
 import { ContentStorageService } from "./content-storage.service.ts";
-import { ConfigurationService } from "../../shared/configuration/index.ts";
+import { ConfigurationService } from "../../configuration/index.ts";
 import type { ContentRequest } from "../../shared/schemas/index.ts";
 
 describe("StoryService", () => {

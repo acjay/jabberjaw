@@ -7,7 +7,7 @@ import {
   ContentStyle,
 } from "../dto/index.ts";
 import { OpenAIClient } from "../../shared/index.ts";
-import { ConfigurationService } from "../../shared/configuration/index.ts";
+import { ConfigurationService } from "../../configuration/index.ts";
 
 interface OpenAIMessage {
   role: "system" | "user" | "assistant";

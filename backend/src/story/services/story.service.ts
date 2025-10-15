@@ -6,7 +6,7 @@ import {
   ContentStorageService,
   StoredContent,
 } from "./content-storage.service.ts";
-import { ConfigurationService } from "../../shared/configuration/index.ts";
+import { ConfigurationService } from "../../configuration/index.ts";
 import {
   ContentRequest,
   GeneratedContent,

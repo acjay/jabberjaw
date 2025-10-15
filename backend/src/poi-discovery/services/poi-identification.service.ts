@@ -6,7 +6,7 @@ import {
   GoogleMapsClient,
   NominatimClient,
 } from "../../shared/index.ts";
-import { ConfigurationService } from "../../shared/configuration/index.ts";
+import { ConfigurationService } from "../../configuration/index.ts";
 
 /**
  * Configuration for POI discovery queries

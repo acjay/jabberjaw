@@ -3,7 +3,7 @@ import { beforeEach, describe, it } from "@std/testing/bdd";
 import { stub } from "@std/testing/mock";
 import { OpenAILLMService } from "./openai-llm.service.ts";
 import { OpenAIClient } from "../../shared/clients/openai-client.ts";
-import { ConfigurationService } from "../../shared/configuration/index.ts";
+import { ConfigurationService } from "../../configuration/index.ts";
 import { ContentRequestDto, ContentStyle } from "../dto/index.ts";
 import { POIType } from "../dto/structured-poi.dto.ts";
 

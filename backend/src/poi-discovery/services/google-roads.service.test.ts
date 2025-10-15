@@ -10,7 +10,7 @@ import { stub } from "@std/testing/mock";
 import { GoogleRoadsService } from "./google-roads.service.ts";
 import { GoogleMapsClient } from "../../shared/clients/google-maps-client.ts";
 import { LocationData } from "../../models/location.model.ts";
-import { ConfigurationService } from "../../shared/configuration/index.ts";
+import { ConfigurationService } from "../../configuration/index.ts";
 
 describe("GoogleRoadsService", () => {
   let service: GoogleRoadsService;

@@ -1,7 +1,7 @@
 import { Injectable } from "@danet/core";
 import { LocationData } from "../../models/location.model.ts";
 import { GoogleMapsClient } from "../../shared/index.ts";
-import { ConfigurationService } from "../../shared/configuration/index.ts";
+import { ConfigurationService } from "../../configuration/index.ts";
 
 /**
  * Google Roads API response interfaces

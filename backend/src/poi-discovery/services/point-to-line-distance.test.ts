@@ -6,7 +6,7 @@ import {
   GoogleMapsClient,
   NominatimClient,
 } from "../../shared/index.ts";
-import { ConfigurationService } from "../../shared/configuration/index.ts";
+import { ConfigurationService } from "../../configuration/index.ts";
 
 describe("Point-to-Line Distance Calculation", () => {
   let service: POIIdentificationService;
