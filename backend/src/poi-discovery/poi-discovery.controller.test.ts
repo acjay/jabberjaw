@@ -6,6 +6,11 @@ import { POIIdentificationService } from "./services/poi-identification.service.
 import { GoogleRoadsService } from "./services/google-roads.service.ts";
 import { PointOfInterest, POICategory } from "../models/poi.model.ts";
 import { stub } from "@std/testing/mock";
+import type {
+  POIDiscoveryRequest,
+  POIFilterRequest,
+  RoadsSnapRequest,
+} from "../shared/schemas/index.ts";
 
 describe("POIDiscoveryController", () => {
   let controller: POIDiscoveryController;
@@ -31,13 +36,11 @@ describe("POIDiscoveryController", () => {
           location: {
             latitude: 40.7129,
             longitude: -74.0059,
-            address: "5th Ave, New York, NY",
           },
           description: "Famous urban park in Manhattan",
           metadata: {
             significanceScore: 95,
-            source: "mock",
-            lastUpdated: new Date(),
+            significance: ["recreational", "historical"],
           },
         },
         {
@@ -47,24 +50,23 @@ describe("POIDiscoveryController", () => {
           location: {
             latitude: 40.713,
             longitude: -74.0058,
-            address: "350 5th Ave, New York, NY",
           },
           description: "Iconic Art Deco skyscraper",
           metadata: {
             significanceScore: 90,
-            source: "mock",
-            lastUpdated: new Date(),
+            significance: ["architectural", "historical"],
           },
         },
       ];
 
       stub(mockPOIService, "discoverPOIs", () => Promise.resolve(mockPOIs));
 
-      const requestData = {
+      const requestData: POIDiscoveryRequest = {
         latitude: 40.7128,
         longitude: -74.006,
         radiusMeters: 5000,
         maxResults: 10,
+        sortBySignificance: false,
       };
 
       const result = await controller.discoverPOIs(requestData);
@@ -83,14 +85,14 @@ describe("POIDiscoveryController", () => {
       assertEquals(result.totalFound, result.pois.length);
       assertEquals(result.pois.length, 2);
 
-      // Verify POI structure
+      // Verify POI structure (now converted to schema format)
       const firstPoi = result.pois[0];
       assertExists(firstPoi.id);
       assertExists(firstPoi.name);
+      assertExists(firstPoi.type);
       assertExists(firstPoi.category);
       assertExists(firstPoi.location);
       assertExists(firstPoi.description);
-      assertExists(firstPoi.metadata);
     });
 
     it("should use default values when optional parameters are omitted", async () => {
@@ -103,21 +105,22 @@ describe("POIDiscoveryController", () => {
             location: {
               latitude: 37.775,
               longitude: -122.4193,
-              address: "San Francisco, CA",
             },
             description: "Test POI description",
             metadata: {
               significanceScore: 80,
-              source: "mock",
-              lastUpdated: new Date(),
+              significance: ["landmark"],
             },
           },
         ])
       );
 
-      const requestData = {
+      const requestData: POIDiscoveryRequest = {
         latitude: 37.7749,
         longitude: -122.4194,
+        radiusMeters: 5000, // Default value
+        maxResults: 20, // Default value
+        sortBySignificance: false, // Default value
       };
 
       const result = await controller.discoverPOIs(requestData);
@@ -139,13 +142,11 @@ describe("POIDiscoveryController", () => {
           location: {
             latitude: 40.7129,
             longitude: -74.0059,
-            address: "New York, NY",
           },
           description: "Lower significance POI",
           metadata: {
             significanceScore: 70,
-            source: "mock",
-            lastUpdated: new Date(),
+            significance: ["recreational"],
           },
         },
         {
@@ -155,13 +156,11 @@ describe("POIDiscoveryController", () => {
           location: {
             latitude: 40.713,
             longitude: -74.0058,
-            address: "New York, NY",
           },
           description: "Higher significance POI",
           metadata: {
             significanceScore: 95,
-            source: "mock",
-            lastUpdated: new Date(),
+            significance: ["historical", "architectural"],
           },
         },
       ];
@@ -175,9 +174,11 @@ describe("POIDiscoveryController", () => {
       stub(mockPOIService, "discoverPOIs", () => Promise.resolve(mockPOIs));
       stub(mockPOIService, "sortBySignificance", () => sortedPOIs);
 
-      const requestData = {
+      const requestData: POIDiscoveryRequest = {
         latitude: 40.7128,
         longitude: -74.006,
+        radiusMeters: 5000,
+        maxResults: 20,
         sortBySignificance: true,
       };
 
@@ -187,21 +188,18 @@ describe("POIDiscoveryController", () => {
       assert(Array.isArray(result.pois));
       assert(result.pois.length > 0);
 
-      // Verify POIs have significance scores
+      // Verify POIs have significance scores (now in schema format)
       for (const poi of result.pois) {
-        assertExists(poi.metadata.significanceScore);
-        assert(typeof poi.metadata.significanceScore === "number");
-        assert(
-          poi.metadata.significanceScore >= 0 &&
-            poi.metadata.significanceScore <= 100
-        );
+        assertExists(poi.significance);
+        assert(typeof poi.significance === "number");
+        assert(poi.significance >= 0 && poi.significance <= 100);
       }
 
       // Verify POIs are sorted by significance (descending)
       if (result.pois.length > 1) {
         for (let i = 0; i < result.pois.length - 1; i++) {
-          const currentScore = result.pois[i].metadata.significanceScore;
-          const nextScore = result.pois[i + 1].metadata.significanceScore;
+          const currentScore = result.pois[i].significance || 0;
+          const nextScore = result.pois[i + 1].significance || 0;
           assert(
             currentScore >= nextScore,
             `POI at index ${i} should have higher or equal significance than POI at index ${
@@ -212,57 +210,23 @@ describe("POIDiscoveryController", () => {
       }
     });
 
-    it("should throw HttpException for invalid latitude", async () => {
-      const requestData = {
-        latitude: 999, // Invalid latitude
-        longitude: -74.006,
-      };
+    it("should handle service errors gracefully", async () => {
+      stub(mockPOIService, "discoverPOIs", () => {
+        throw new Error("Service unavailable");
+      });
 
-      await assertRejects(
-        () => controller.discoverPOIs(requestData),
-        HttpException,
-        "Invalid latitude"
-      );
-    });
-
-    it("should throw HttpException for invalid longitude", async () => {
-      const requestData = {
-        latitude: 40.7128,
-        longitude: 999, // Invalid longitude
-      };
-
-      await assertRejects(
-        () => controller.discoverPOIs(requestData),
-        HttpException,
-        "Invalid longitude"
-      );
-    });
-
-    it("should throw HttpException for invalid radius", async () => {
-      const requestData = {
+      const requestData: POIDiscoveryRequest = {
         latitude: 40.7128,
         longitude: -74.006,
-        radiusMeters: 99, // Too small
+        radiusMeters: 5000,
+        maxResults: 20,
+        sortBySignificance: false,
       };
 
       await assertRejects(
         () => controller.discoverPOIs(requestData),
-        HttpException,
-        "Invalid radiusMeters"
-      );
-    });
-
-    it("should throw HttpException for invalid maxResults", async () => {
-      const requestData = {
-        latitude: 40.7128,
-        longitude: -74.006,
-        maxResults: 0, // Too small
-      };
-
-      await assertRejects(
-        () => controller.discoverPOIs(requestData),
-        HttpException,
-        "Invalid maxResults"
+        Error,
+        "Service unavailable"
       );
     });
   });
@@ -277,25 +241,37 @@ describe("POIDiscoveryController", () => {
           location: {
             latitude: 40.7129,
             longitude: -74.0059,
-            address: "New York, NY",
           },
           description: "Nearby POI",
           metadata: {
             significanceScore: 80,
-            source: "mock",
-            lastUpdated: new Date(),
+            significance: ["recreational"],
           },
         },
       ];
 
       stub(mockPOIService, "filterByDistance", () => mockPOIs);
 
-      const filterData = {
+      const filterData: POIFilterRequest = {
         centerLocation: {
           latitude: 40.7128,
           longitude: -74.006,
         },
-        pois: mockPOIs,
+        pois: [
+          {
+            id: "poi-1",
+            name: "Nearby POI",
+            type: "park",
+            category: "park",
+            location: {
+              latitude: 40.7129,
+              longitude: -74.0059,
+            },
+            description: "Nearby POI",
+            significance: 80,
+            tags: ["recreational"],
+          },
+        ],
         maxDistanceMeters: 1000,
       };
 
@@ -308,22 +284,41 @@ describe("POIDiscoveryController", () => {
       assertEquals(result.searchRadius, 1000);
 
       // Filtered results should match mock
-      assertEquals(result.pois.length, mockPOIs.length);
+      assertEquals(result.pois.length, 1);
     });
 
-    it("should throw HttpException for missing required fields", async () => {
-      const invalidData = {
+    it("should handle service errors gracefully", async () => {
+      stub(mockPOIService, "filterByDistance", () => {
+        throw new Error("Filter service error");
+      });
+
+      const filterData: POIFilterRequest = {
         centerLocation: {
           latitude: 40.7128,
           longitude: -74.006,
         },
-        // Missing pois and maxDistanceMeters
+        pois: [
+          {
+            id: "poi-1",
+            name: "Test POI",
+            type: "park",
+            category: "park",
+            location: {
+              latitude: 40.7129,
+              longitude: -74.0059,
+            },
+            description: "Test POI",
+            significance: 80,
+            tags: ["recreational"],
+          },
+        ],
+        maxDistanceMeters: 1000,
       };
 
       await assertRejects(
-        () => controller.filterPOIsByDistance(invalidData),
-        HttpException,
-        "Missing required fields"
+        () => controller.filterPOIsByDistance(filterData),
+        Error,
+        "Filter service error"
       );
     });
   });
@@ -386,7 +381,7 @@ describe("POIDiscoveryController", () => {
         })
       );
 
-      const requestBody = {
+      const requestBody: RoadsSnapRequest = {
         latitude: 40.758,
         longitude: -73.9855,
       };
@@ -395,34 +390,24 @@ describe("POIDiscoveryController", () => {
 
       assertEquals(result.location.latitude, requestBody.latitude);
       assertEquals(result.location.longitude, requestBody.longitude);
-      assertEquals(result.roadInfo?.roadName, "Broadway");
-      assertEquals(result.roadInfo?.placeId, "ChIJmQJIxlVYwokRLgeuocVOGVU");
+      assertEquals(result.roadInfo?.name, "Broadway");
       assertExists(result.timestamp);
     });
 
-    it("should throw HttpException for invalid latitude", async () => {
-      const requestBody = {
-        latitude: 91, // Invalid latitude
+    it("should handle service errors gracefully", async () => {
+      stub(mockGoogleRoadsService, "snapToRoads", () => {
+        throw new Error("Roads service error");
+      });
+
+      const requestBody: RoadsSnapRequest = {
+        latitude: 40.758,
         longitude: -73.9855,
       };
 
       await assertRejects(
         () => controller.snapToRoads(requestBody),
-        HttpException,
-        "Invalid latitude"
-      );
-    });
-
-    it("should throw HttpException for invalid longitude", async () => {
-      const requestBody = {
-        latitude: 40.758,
-        longitude: 181, // Invalid longitude
-      };
-
-      await assertRejects(
-        () => controller.snapToRoads(requestBody),
-        HttpException,
-        "Invalid longitude"
+        Error,
+        "Roads service error"
       );
     });
   });
@@ -448,7 +433,7 @@ describe("POIDiscoveryController", () => {
         ])
       );
 
-      const requestBody = {
+      const requestBody: RoadsSnapRequest = {
         latitude: 40.758,
         longitude: -73.9855,
       };
@@ -458,27 +443,31 @@ describe("POIDiscoveryController", () => {
       assertEquals(result.location.latitude, requestBody.latitude);
       assertEquals(result.location.longitude, requestBody.longitude);
       assertEquals(result.roads.length, 1);
-      assertEquals(result.roads[0].roadName, "Broadway");
+      assertEquals(result.roads[0].name, "Broadway");
       assertExists(result.timestamp);
     });
 
-    it("should throw HttpException for invalid coordinates", async () => {
-      const requestBody = {
-        latitude: -91, // Invalid latitude
+    it("should handle service errors gracefully", async () => {
+      stub(mockGoogleRoadsService, "findNearestRoads", () => {
+        throw new Error("Roads service error");
+      });
+
+      const requestBody: RoadsSnapRequest = {
+        latitude: 40.758,
         longitude: -73.9855,
       };
 
       await assertRejects(
         () => controller.findNearestRoads(requestBody),
-        HttpException,
-        "Invalid latitude"
+        Error,
+        "Roads service error"
       );
     });
   });
 
   describe("testGoogleRoadsConnection", () => {
     it("should return configuration and connection status", async () => {
-      stub(mockGoogleRoadsService, "isConfigured", () => true);
+      stub(mockGoogleRoadsService, "isConfigured", () => Promise.resolve(true));
       stub(mockGoogleRoadsService, "testConnection", () =>
         Promise.resolve(true)
       );

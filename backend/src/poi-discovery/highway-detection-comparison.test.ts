@@ -1,12 +1,15 @@
 import { assert, assertEquals, assertExists } from "@std/assert";
 import { beforeEach, describe, it } from "@std/testing/bdd";
-import {
-  HighwayDetectionController,
-  HighwayDetectionComparison,
-} from "./highway-detection.controller.ts";
+import { HighwayDetectionController } from "./highway-detection.controller.ts";
 import { POIIdentificationService } from "./services/poi-identification.service.ts";
 import { GoogleRoadsService } from "./services/google-roads.service.ts";
 import { HighwayDetectionComparisonService } from "./services/highway-detection-comparison.service.ts";
+import {
+  OverpassClient,
+  GoogleMapsClient,
+  NominatimClient,
+} from "../shared/index.ts";
+import { ConfigurationService } from "../shared/configuration/index.ts";
 
 describe("Highway Detection Comparison API", () => {
   let controller: HighwayDetectionController;
@@ -14,11 +17,37 @@ describe("Highway Detection Comparison API", () => {
   let googleRoadsService: GoogleRoadsService;
 
   beforeEach(() => {
-    poiService = new POIIdentificationService();
-    googleRoadsService = new GoogleRoadsService();
+    // Create mock dependencies with proper method stubs
+    const mockOverpassClient = {
+      query: () => Promise.resolve({ elements: [] }),
+    } as unknown as OverpassClient;
+    const mockGoogleMapsClient = {
+      placesNearbySearch: () => Promise.resolve({ results: [] }),
+    } as unknown as GoogleMapsClient;
+    const mockNominatimClient = {
+      reverse: () => Promise.resolve({ address: {} }),
+    } as unknown as NominatimClient;
+    const mockConfigService = {
+      get: () => undefined,
+      getGoogleMapsApiKey: () => Promise.resolve(undefined),
+      getGoogleRoadsApiKey: () => Promise.resolve(undefined),
+      getGooglePlacesApiKey: () => Promise.resolve(undefined),
+    } as unknown as ConfigurationService;
+
+    poiService = new POIIdentificationService(
+      mockOverpassClient,
+      mockGoogleMapsClient,
+      mockNominatimClient,
+      mockConfigService
+    );
+    googleRoadsService = new GoogleRoadsService(
+      mockGoogleMapsClient,
+      mockConfigService
+    );
     const comparisonService = new HighwayDetectionComparisonService(
       poiService,
-      googleRoadsService
+      googleRoadsService,
+      mockOverpassClient
     );
     controller = new HighwayDetectionController(comparisonService);
   });

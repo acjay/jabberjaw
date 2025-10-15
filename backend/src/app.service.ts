@@ -4,11 +4,7 @@ import { ConfigurationService } from "./shared/configuration/index.ts";
 @Injectable()
 export class AppService {
   constructor(private readonly configService: ConfigurationService) {}
-
-  getHello(): string {
-    return "Jabberjaw Backend API is running with Deno and Danet!";
-  }
-
+  
   async getHealth() {
     const environment =
       (await this.configService.get("NODE_ENV")) || "development";

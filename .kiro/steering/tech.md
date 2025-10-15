@@ -7,14 +7,18 @@
 - **Language**: TypeScript with strict mode enabled
 - **Package Management**: JSR (JavaScript Registry) for all imports
 - **Testing**: Deno's built-in testing framework with BDD support
+- **Validation**: Zod for schema validation and type safety
+- **API Documentation**: OpenAPI/Swagger integration via @danet/swagger
 
 ## Key Dependencies
 
 - `@danet/core` - Web framework with decorators and dependency injection
+- `@danet/swagger` - OpenAPI/Swagger documentation and validation
 - `@std/http` - HTTP utilities
 - `@std/dotenv` - Environment variable loading
 - `@std/assert` - Testing assertions
 - `@std/testing` - Testing utilities
+- `zod` - Schema validation and type inference
 
 ## Development Commands
 
@@ -44,6 +48,8 @@ deno task fmt:check    # Check formatting
 - **Linting**: Deno's built-in linter with recommended rules
 - **Line Width**: 100 characters maximum
 - **Decorators**: Uses experimental decorators for Danet framework
+- **Validation**: Zod schemas should be used for request/response validation for all internal and external APIs
+- **API Documentation**: OpenAPI decorators on all controller methods
 
 ## Environment Configuration
 
@@ -71,3 +77,38 @@ deno task fmt:check    # Check formatting
 ## Other notes
 
 - Please ignore the warning `Warning experimentalDecorators compiler option is deprecated and may be removed at any time`. Danet relies on the deprecated form of decorators, to match the behavior of NestJS. The project has has no intention to use the more standardized form.
+
+## Schema Validation & API Design
+
+- **Schema Location**: All Zod schemas are centralized in `src/shared/schemas/`
+- **Validation Pattern**: Use `@Body(Schema)` decorator from `@danet/zod` for automatic validation
+- **Type Safety**: Leverage Zod's `z.infer<>` for automatic TypeScript type generation
+- **API Documentation**: Use `@ReturnedSchema(Schema)` from `@danet/zod` for response documentation
+- **Schema Organization**: Schemas are grouped by domain (location, poi, content, journey)
+- **Validation Errors**: Automatic HTTP 400 responses with detailed validation messages
+
+### Schema Development Guidelines
+
+1. **Define schemas first**: Create Zod schemas before implementing API endpoints
+2. **Use schema inference**: Generate TypeScript types from schemas using `z.infer<>`
+3. **Automatic validation**: Use `@Body(Schema)` decorator for request validation
+4. **Document responses**: Use `@ReturnedSchema(Schema)` decorator for response documentation
+5. **Bridge legacy code**: Use schema bridge utilities when integrating with existing DTOs
+6. **Reuse schemas**: Share common schemas across different endpoints and modules
+
+### Controller Pattern
+
+```typescript
+import { Body, ReturnedSchema } from "@danet/zod";
+import { MyRequestSchema, MyResponseSchema, type MyRequest, type MyResponse } from "../schemas/index.ts";
+
+@Post("endpoint")
+@ReturnedSchema(MyResponseSchema)
+async myEndpoint(
+  @Body(MyRequestSchema) body: MyRequest
+): Promise<MyResponse> {
+  // Request is automatically validated
+  // Response type is documented
+  return result;
+}
+```

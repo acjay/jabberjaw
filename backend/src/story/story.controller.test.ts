@@ -3,9 +3,8 @@ import { beforeEach, describe, it } from "@std/testing/bdd";
 import { HttpException } from "@danet/core";
 import { StoryController } from "./story.controller.ts";
 import { StoryService } from "./services/story.service.ts";
-import { ContentStyle } from "./dto/content-request.dto.ts";
-import { POIType } from "./dto/structured-poi.dto.ts";
 import { stub } from "@std/testing/mock";
+import type { ContentRequest } from "../shared/schemas/index.ts";
 
 describe("StoryController", () => {
   let controller: StoryController;
@@ -24,26 +23,26 @@ describe("StoryController", () => {
         Promise.resolve({
           id: "test-content-id-123",
           content: "Mock generated story content",
-          estimatedDuration: 180,
-          contentStyle: ContentStyle.HISTORICAL,
-          generatedAt: new Date().toISOString(),
+          duration: 180,
+          status: "ready" as const,
+          generatedAt: new Date(),
         })
       );
 
-      const requestBody = {
+      const requestBody: ContentRequest = {
         input: {
           description: "The town of Metuchen, NJ, USA",
         },
         targetDuration: 180,
-        contentStyle: ContentStyle.HISTORICAL,
+        contentStyle: "historical",
       };
 
       const result = await controller.generateContent(requestBody);
 
       assertExists(result.id);
       assertExists(result.content);
-      assertExists(result.estimatedDuration);
-      assertEquals(result.contentStyle, ContentStyle.HISTORICAL);
+      assertExists(result.duration);
+      assertEquals(result.status, "ready");
     });
 
     it("should generate content with structured POI input", async () => {
@@ -52,64 +51,71 @@ describe("StoryController", () => {
         Promise.resolve({
           id: "poi-content-id-456",
           content: "Mock POI story content",
-          estimatedDuration: 240,
-          contentStyle: ContentStyle.CULTURAL,
-          generatedAt: new Date().toISOString(),
+          duration: 240,
+          status: "ready" as const,
+          generatedAt: new Date(),
         })
       );
 
-      const requestBody = {
+      const requestBody: ContentRequest = {
         input: {
           name: "Morton Arboretum",
-          type: POIType.ARBORETUM,
+          type: "arboretum",
           location: {
-            country: "USA",
-            state: "Illinois",
-            city: "Lisle",
+            latitude: 50,
+            longitude: 50,
           },
+          description: "A beautiful arboretum",
         },
         targetDuration: 180,
-        contentStyle: ContentStyle.CULTURAL,
+        contentStyle: "cultural",
       };
 
       const result = await controller.generateContent(requestBody);
 
       assertExists(result.id);
       assertExists(result.content);
-      assertEquals(result.contentStyle, ContentStyle.CULTURAL);
+      assertEquals(result.status, "ready");
     });
 
-    it("should throw HttpException for invalid request body", async () => {
-      // This test doesn't need any stubs - the controller should throw before calling the service
-      const requestBody = {
-        input: null, // Invalid input
+    it("should handle service errors gracefully", async () => {
+      // Stub service to throw an error
+      stub(mockService, "generateContent", () => {
+        throw new Error("Service error");
+      });
+
+      const requestBody: ContentRequest = {
+        input: {
+          description: "Test location",
+        },
+        targetDuration: 180,
+        contentStyle: "mixed",
       };
 
       await assertRejects(
         () => controller.generateContent(requestBody),
-        HttpException,
-        "Invalid content request"
+        Error,
+        "Service error"
       );
     });
   });
 
   describe("getContent", () => {
     it("should retrieve content by ID", async () => {
-      // Stub with specific return value for this test
-      stub(mockService, "getContent", () =>
-        Promise.resolve({
-          id: "test-id",
-          content: "Retrieved story content",
-          prompt: "Test prompt",
-          generatedAt: new Date().toISOString(),
-          estimatedDuration: 180,
-          contentStyle: ContentStyle.MIXED,
-          inputData: { description: "test" },
-          storedAt: new Date(),
-          accessCount: 1,
-          lastAccessedAt: new Date(),
-        })
-      );
+      // Stub with specific return value for this test (getContent is now synchronous)
+      stub(mockService, "getContent", () => ({
+        id: "test-id",
+        content: "Retrieved story content",
+        prompt: "Test prompt",
+        generatedAt: new Date(),
+        estimatedDuration: 180,
+        contentStyle: "mixed",
+        inputData: { description: "test" },
+        storedAt: new Date(),
+        accessCount: 1,
+        lastAccessedAt: new Date(),
+        sources: ["test"],
+      }));
 
       const result = await controller.getContent("test-id");
 
@@ -120,8 +126,8 @@ describe("StoryController", () => {
     });
 
     it("should throw HttpException for non-existent content ID", async () => {
-      // Stub to return null for non-existent content
-      stub(mockService, "getContent", () => Promise.resolve(null));
+      // Stub to return null for non-existent content (getContent is now synchronous)
+      stub(mockService, "getContent", () => null);
 
       await assertRejects(
         () => controller.getContent("non-existent-id"),
@@ -142,35 +148,35 @@ describe("StoryController", () => {
 
   describe("listContent", () => {
     it("should return array of stored content", async () => {
-      // Stub with mock content list
-      stub(mockService, "listContent", () =>
-        Promise.resolve([
-          {
-            id: "content-1",
-            content: "First story",
-            prompt: "Prompt 1",
-            generatedAt: new Date().toISOString(),
-            estimatedDuration: 120,
-            contentStyle: ContentStyle.HISTORICAL,
-            inputData: { description: "location 1" },
-            storedAt: new Date(),
-            accessCount: 2,
-            lastAccessedAt: new Date(),
-          },
-          {
-            id: "content-2",
-            content: "Second story",
-            prompt: "Prompt 2",
-            generatedAt: new Date().toISOString(),
-            estimatedDuration: 150,
-            contentStyle: ContentStyle.CULTURAL,
-            inputData: { description: "location 2" },
-            storedAt: new Date(),
-            accessCount: 1,
-            lastAccessedAt: new Date(),
-          },
-        ])
-      );
+      // Stub with mock content list (listContent is now synchronous)
+      stub(mockService, "listContent", () => [
+        {
+          id: "content-1",
+          content: "First story",
+          prompt: "Prompt 1",
+          generatedAt: new Date(),
+          estimatedDuration: 120,
+          contentStyle: "historical",
+          inputData: { description: "location 1" },
+          storedAt: new Date(),
+          accessCount: 2,
+          lastAccessedAt: new Date(),
+          sources: ["test"],
+        },
+        {
+          id: "content-2",
+          content: "Second story",
+          prompt: "Prompt 2",
+          generatedAt: new Date(),
+          estimatedDuration: 150,
+          contentStyle: "cultural",
+          inputData: { description: "location 2" },
+          storedAt: new Date(),
+          accessCount: 1,
+          lastAccessedAt: new Date(),
+          sources: ["test"],
+        },
+      ]);
 
       const result = await controller.listContent();
 
@@ -182,7 +188,7 @@ describe("StoryController", () => {
 
     it("should return empty array when no content exists", async () => {
       // Stub with empty array
-      stub(mockService, "listContent", () => Promise.resolve([]));
+      stub(mockService, "listContent", () => []);
 
       const result = await controller.listContent();
 
@@ -193,8 +199,8 @@ describe("StoryController", () => {
 
   describe("deleteContent", () => {
     it("should delete existing content", async () => {
-      // Stub successful deletion
-      stub(mockService, "deleteContent", () => Promise.resolve(true));
+      // Stub successful deletion (deleteContent is now synchronous)
+      stub(mockService, "deleteContent", () => true);
 
       const result = await controller.deleteContent("test-id");
       assertEquals(result.success, true);
@@ -202,7 +208,7 @@ describe("StoryController", () => {
 
     it("should throw HttpException for non-existent content ID", async () => {
       // Stub failed deletion
-      stub(mockService, "deleteContent", () => Promise.resolve(false));
+      stub(mockService, "deleteContent", () => false);
 
       await assertRejects(
         () => controller.deleteContent("non-existent-id"),
@@ -247,8 +253,8 @@ describe("StoryController", () => {
 
   describe("clearCache", () => {
     it("should clear cache successfully", async () => {
-      // Stub cache clearing
-      stub(mockService, "clearCache", () => Promise.resolve());
+      // Stub cache clearing (clearCache is now synchronous)
+      stub(mockService, "clearCache", () => undefined);
 
       const result = await controller.clearCache();
       assertEquals(result.success, true);
@@ -263,13 +269,14 @@ describe("StoryController", () => {
           id: "similar-1",
           content: "Similar story 1",
           prompt: "Similar prompt 1",
-          generatedAt: new Date().toISOString(),
+          generatedAt: new Date(),
           estimatedDuration: 160,
-          contentStyle: ContentStyle.GEOGRAPHICAL,
+          contentStyle: "geographical",
           inputData: { description: "similar location" },
           storedAt: new Date(),
           accessCount: 3,
           lastAccessedAt: new Date(),
+          sources: ["test"],
         },
       ]);
 
@@ -290,13 +297,14 @@ describe("StoryController", () => {
           id: "recent-1",
           content: "Recent story",
           prompt: "Recent prompt",
-          generatedAt: new Date().toISOString(),
+          generatedAt: new Date(),
           estimatedDuration: 140,
-          contentStyle: ContentStyle.MIXED,
+          contentStyle: "mixed",
           inputData: { description: "recent location" },
           storedAt: new Date(),
           accessCount: 1,
           lastAccessedAt: new Date(),
+          sources: ["test"],
         },
       ]);
 
@@ -316,13 +324,14 @@ describe("StoryController", () => {
           id: "popular-1",
           content: "Popular story",
           prompt: "Popular prompt",
-          generatedAt: new Date().toISOString(),
+          generatedAt: new Date(),
           estimatedDuration: 200,
-          contentStyle: ContentStyle.HISTORICAL,
+          contentStyle: "historical",
           inputData: { description: "popular location" },
           storedAt: new Date(),
           accessCount: 10,
           lastAccessedAt: new Date(),
+          sources: ["test"],
         },
       ]);
 

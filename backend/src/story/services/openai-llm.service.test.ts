@@ -3,6 +3,7 @@ import { beforeEach, describe, it } from "@std/testing/bdd";
 import { stub } from "@std/testing/mock";
 import { OpenAILLMService } from "./openai-llm.service.ts";
 import { OpenAIClient } from "../../shared/clients/openai-client.ts";
+import { ConfigurationService } from "../../shared/configuration/index.ts";
 import { ContentRequestDto, ContentStyle } from "../dto/index.ts";
 import { POIType } from "../dto/structured-poi.dto.ts";
 
@@ -34,7 +35,15 @@ describe("OpenAILLMService", () => {
       })
     );
 
-    service = new OpenAILLMService(mockOpenAIClient);
+    const mockConfigService = {
+      get: () => undefined,
+      getOpenAIApiKey: () => Promise.resolve("test-api-key"),
+      getOpenAIModel: () => "gpt-3.5-turbo",
+      getGoogleMapsApiKey: () => Promise.resolve(undefined),
+      getGoogleRoadsApiKey: () => Promise.resolve(undefined),
+      getGooglePlacesApiKey: () => Promise.resolve(undefined),
+    } as unknown as ConfigurationService;
+    service = new OpenAILLMService(mockOpenAIClient, mockConfigService);
   });
 
   describe("generatePrompt", () => {

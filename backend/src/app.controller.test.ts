@@ -1,4 +1,4 @@
-import { assertEquals, assertObjectMatch } from "@std/assert";
+import { assertObjectMatch } from "@std/assert";
 import { describe, it, beforeEach } from "@std/testing/bdd";
 import { AppController } from "./app.controller.ts";
 import { AppService } from "./app.service.ts";
@@ -17,14 +17,6 @@ describe("AppController", () => {
   });
 
   describe("root", () => {
-    it("should return welcome message", () => {
-      const result = appController.getHello();
-      assertEquals(
-        result,
-        "Jabberjaw Backend API is running with Deno and Danet!"
-      );
-    });
-
     it("should return health status", async () => {
       const health = await appController.getHealth();
       assertObjectMatch(health, {

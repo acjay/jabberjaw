@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Get,
   HTTP_STATUS,
@@ -7,41 +6,34 @@ import {
   Param,
   Post,
 } from "@danet/core";
+import { Body, ReturnedSchema } from "@danet/zod";
 import { JourneyService } from "./journey.service.ts";
 import {
-  LocationRequestDto,
-  LocationResponseDto,
-  StoryResponseDto,
-} from "./dto/index.ts";
+  JourneyLocationRequestSchema,
+  JourneyLocationResponseSchema,
+  type JourneyLocationRequest,
+  type JourneyLocationResponse,
+  type StoryResponse,
+  type HealthResponse,
+} from "../shared/schemas/index.ts";
 
 @Controller("api")
 export class JourneyController {
   constructor(private readonly journeyService: JourneyService) {}
 
   @Post("story-seeds-for-location")
+  @ReturnedSchema(JourneyLocationResponseSchema)
   async processLocation(
-    @Body() body: LocationRequestDto
-  ): Promise<LocationResponseDto> {
-    try {
-      // Validate and create DTO
-      const locationRequest = new LocationRequestDto(body);
+    @Body(JourneyLocationRequestSchema) body: JourneyLocationRequest
+  ): Promise<JourneyLocationResponse> {
+    // Process the location and generate content
+    const response = await this.journeyService.processLocation(body);
 
-      // Process the location and generate content
-      const response = await this.journeyService.processLocation(
-        locationRequest
-      );
-
-      return response;
-    } catch (error) {
-      throw new HttpException(
-        HTTP_STATUS.BAD_REQUEST,
-        `Invalid location data: ${error}`
-      );
-    }
+    return response;
   }
 
   @Get("story/:id")
-  getStory(@Param("id") id: string): StoryResponseDto {
+  getStory(@Param("id") id: string): StoryResponse {
     if (!id) {
       throw new HttpException(HTTP_STATUS.BAD_REQUEST, "Story ID is required");
     }
@@ -56,7 +48,7 @@ export class JourneyController {
   }
 
   @Get("health")
-  getHealth(): { status: string; service: string; stories: number } {
+  getHealth(): HealthResponse {
     const health = this.journeyService.getHealth();
     return {
       status: health.status,

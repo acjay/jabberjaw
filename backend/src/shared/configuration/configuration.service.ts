@@ -62,6 +62,14 @@ export class ConfigurationService {
     return await this.getRequired("GOOGLE_MAPS_API_KEY");
   }
 
+  async getGoogleRoadsApiKey(): Promise<string> {
+    return await this.getRequired("GOOGLE_ROADS_API_KEY");
+  }
+
+  async getGooglePlacesApiKey(): Promise<string> {
+    return await this.getRequired("GOOGLE_PLACES_API_KEY");
+  }
+
   // For testing purposes - allows overriding config values
   setForTesting(key: string, value: string): void {
     this.config[key] = value;

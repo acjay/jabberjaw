@@ -149,7 +149,7 @@ export class POIIdentificationService {
 
     try {
       // Try Google Geocoding API first
-      const googleKey = await this.configService.get("GOOGLE_PLACES_API_KEY");
+      const googleKey = await this.configService.getGooglePlacesApiKey();
       if (googleKey) {
         try {
           const data = await this.googleMapsClient.geocode({
@@ -602,7 +602,7 @@ export class POIIdentificationService {
     location: LocationData,
     config: POIDiscoveryConfig
   ): Promise<ExternalPOIResult[]> {
-    const apiKey = await this.configService.get("GOOGLE_PLACES_API_KEY");
+    const apiKey = await this.configService.getGooglePlacesApiKey();
     if (!apiKey) {
       throw new Error("Google Places API key not configured");
     }

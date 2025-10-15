@@ -16,7 +16,7 @@ describe("GoogleRoadsController", () => {
 
   describe("testConnection", () => {
     it("should return configuration and connection status", async () => {
-      stub(mockService, "isConfigured", () => true);
+      stub(mockService, "isConfigured", () => Promise.resolve(true));
       stub(mockService, "testConnection", () => Promise.resolve(true));
 
       const result = await controller.testConnection();
@@ -27,7 +27,7 @@ describe("GoogleRoadsController", () => {
     });
 
     it("should handle unconfigured service", async () => {
-      stub(mockService, "isConfigured", () => false);
+      stub(mockService, "isConfigured", () => Promise.resolve(false));
 
       const result = await controller.testConnection();
 
@@ -37,7 +37,7 @@ describe("GoogleRoadsController", () => {
     });
 
     it("should handle connection test failure", async () => {
-      stub(mockService, "isConfigured", () => true);
+      stub(mockService, "isConfigured", () => Promise.resolve(true));
       stub(mockService, "testConnection", () => Promise.resolve(false));
 
       const result = await controller.testConnection();
@@ -50,7 +50,7 @@ describe("GoogleRoadsController", () => {
 
   describe("snapToRoads", () => {
     it("should successfully snap location to road", async () => {
-      stub(mockService, "isConfigured", () => true);
+      stub(mockService, "isConfigured", () => Promise.resolve(true));
       stub(mockService, "snapToRoads", () =>
         Promise.resolve({
           roadName: "Broadway",
@@ -152,7 +152,7 @@ describe("GoogleRoadsController", () => {
 
   describe("findNearestRoads", () => {
     it("should successfully find nearest roads", async () => {
-      stub(mockService, "isConfigured", () => true);
+      stub(mockService, "isConfigured", () => Promise.resolve(true));
       stub(mockService, "findNearestRoads", () =>
         Promise.resolve([
           {

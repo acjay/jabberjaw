@@ -18,29 +18,38 @@ The backend follows a modular architecture using Danet's module system:
 backend/src/
 ├── app.module.ts                    # Root application module
 ├── main.ts                          # Application entry point
+├── shared/                          # Shared utilities and schemas
+│   ├── schemas/                    # Zod validation schemas
+│   │   ├── location.schema.ts
+│   │   ├── poi.schema.ts
+│   │   ├── content.schema.ts
+│   │   └── journey.schema.ts
+│   ├── utils/                      # Shared utilities
+│   │   └── validation.ts           # Zod validation helpers
+│   ├── clients/                    # External API clients
+│   └── configuration/              # Configuration management
 ├── journey/                         # Journey workflow module
 │   ├── journey.controller.ts
 │   ├── journey.service.ts
-│   ├── journey.module.ts
-│   └── dto/                        # Request/response DTOs
+│   └── journey.module.ts
 ├── poi-discovery/                   # POI identification module
 │   ├── poi-discovery.controller.ts
 │   ├── poi-discovery.module.ts
 │   └── services/                   # POI processing services
-├── story/              # Content generation module
+├── story/                          # Content generation module
 │   ├── story.controller.ts
 │   ├── story.module.ts
-│   ├── dto/                        # Data transfer objects
 │   └── services/                   # Business logic services
-└── models/                         # Shared data models
+└── models/                         # Legacy data models (being phased out)
 ```
 
 ## Module Organization Patterns
 
-- **Controllers**: Handle HTTP requests and responses
+- **Controllers**: Handle HTTP requests and responses with OpenAPI documentation
 - **Services**: Contain business logic and external integrations
-- **DTOs**: Define request/response data structures
-- **Models**: Shared data models across modules
+- **Schemas**: Zod validation schemas for type-safe API contracts (in `shared/schemas/`)
+- **Models**: Legacy data models (being replaced by Zod schemas)
+- **Utils**: Shared utilities including validation helpers
 - **Index files**: Export public APIs from modules
 
 ## File Naming Conventions
@@ -48,8 +57,9 @@ backend/src/
 - **Controllers**: `*.controller.ts`
 - **Services**: `*.service.ts`
 - **Modules**: `*.module.ts`
-- **DTOs**: `*.dto.ts`
-- **Models**: `*.model.ts`
+- **Schemas**: `*.schema.ts` (Zod validation schemas)
+- **Models**: `*.model.ts` (legacy, being phased out)
+- **Utils**: `*.ts` (in `shared/utils/`)
 - **Tests**: `*.test.ts` (co-located with source)
 - **E2E Tests**: `*.e2e.test.ts` (in `test/` directory)
 

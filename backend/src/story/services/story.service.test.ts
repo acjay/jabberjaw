@@ -6,17 +6,19 @@ import { MockLLMService } from "./llm.service.ts";
 import { OpenAILLMService } from "./openai-llm.service.ts";
 import { OpenAIClient } from "../../shared/clients/openai-client.ts";
 import { ContentStorageService } from "./content-storage.service.ts";
-import { ContentRequestDto, ContentStyle } from "../dto/index.ts";
-import { POIType } from "../dto/structured-poi.dto.ts";
+import { ConfigurationService } from "../../shared/configuration/index.ts";
+import type { ContentRequest } from "../../shared/schemas/index.ts";
 
 describe("StoryService", () => {
   let service: StoryService;
   let llmService: MockLLMService;
   let storageService: ContentStorageService;
+  let configService: ConfigurationService;
 
   beforeEach(() => {
     llmService = new MockLLMService();
     storageService = new ContentStorageService();
+    configService = new ConfigurationService();
 
     // Create mock OpenAI client
     const mockOpenAIClient = new OpenAIClient();
@@ -39,54 +41,66 @@ describe("StoryService", () => {
       })
     );
 
-    const openAIService = new OpenAILLMService(mockOpenAIClient);
-    service = new StoryService(llmService, openAIService, storageService);
+    const openAIService = new OpenAILLMService(mockOpenAIClient, configService);
+    service = new StoryService(
+      llmService,
+      openAIService,
+      storageService,
+      configService
+    );
   });
 
   describe("generateContent", () => {
     it("should generate content for text description", async () => {
-      const request = new ContentRequestDto({
+      const request: ContentRequest = {
         input: { description: "The town of Metuchen, NJ, USA" },
-      });
+        targetDuration: 180,
+        contentStyle: "mixed",
+      };
 
       const result = await service.generateContent(request);
 
       assertExists(result.id);
       assertExists(result.content);
-      assertEquals(typeof result.estimatedDuration, "number");
+      assertEquals(typeof result.duration, "number");
       assertExists(result.generatedAt);
-      assertEquals(result.contentStyle, ContentStyle.MIXED);
+      assertEquals(result.status, "ready");
     });
 
     it("should generate content for structured POI", async () => {
-      const request = new ContentRequestDto({
+      const request: ContentRequest = {
         input: {
           name: "Morton Arboretum",
-          type: POIType.ARBORETUM,
+          type: "arboretum",
           location: {
-            country: "USA",
-            state: "Illinois",
-            city: "Lisle",
+            latitude: 41.8158,
+            longitude: -88.0705,
           },
+          description: "A beautiful arboretum in Lisle, Illinois",
         },
-        contentStyle: ContentStyle.GEOGRAPHICAL,
-      });
+        targetDuration: 180,
+        contentStyle: "geographical",
+      };
 
       const result = await service.generateContent(request);
 
       assertExists(result.id);
       assertExists(result.content);
-      assertEquals(result.contentStyle, ContentStyle.GEOGRAPHICAL);
+      assertEquals(result.status, "ready");
     });
 
     it("should return cached content for similar requests", async () => {
-      const request1 = new ContentRequestDto({
+      const request1: ContentRequest = {
         input: { description: "The town of Metuchen, NJ, USA" },
-      });
+        targetDuration: 180,
+        contentStyle: "mixed",
+      };
 
-      const request2 = new ContentRequestDto({
+      const request2: ContentRequest = {
         input: { description: "The town of Metuchen, NJ, USA" },
-      });
+        targetDuration: 180,
+        contentStyle: "mixed",
+      };
 
       const result1 = await service.generateContent(request1);
       const result2 = await service.generateContent(request2);
@@ -98,12 +112,14 @@ describe("StoryService", () => {
 
   describe("getContent", () => {
     it("should retrieve stored content by ID", async () => {
-      const request = new ContentRequestDto({
+      const request: ContentRequest = {
         input: { description: "Test location" },
-      });
+        targetDuration: 180,
+        contentStyle: "mixed",
+      };
 
       const generated = await service.generateContent(request);
-      const retrieved = await service.getContent(generated.id);
+      const retrieved = service.getContent(generated.id); // No longer async
 
       assertExists(retrieved);
       assertEquals(retrieved.id, generated.id);
@@ -111,8 +127,8 @@ describe("StoryService", () => {
       assertExists(retrieved.prompt);
     });
 
-    it("should return null for non-existent content", async () => {
-      const result = await service.getContent("non-existent-id");
+    it("should return null for non-existent content", () => {
+      const result = service.getContent("non-existent-id"); // No longer async
       assertEquals(result, null);
     });
   });

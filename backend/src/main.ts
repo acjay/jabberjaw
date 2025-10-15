@@ -1,4 +1,5 @@
 import { DanetApplication } from "@danet/core";
+import { SwaggerModule, SpecBuilder } from "@danet/swagger";
 import { load } from "@std/dotenv";
 import { AppModule } from "./app.module.ts";
 import { ConfigurationService } from "./shared/configuration/index.ts";
@@ -17,6 +18,19 @@ async function bootstrap() {
     allowHeaders: ["Content-Type", "Authorization", "Accept"],
     credentials: true,
   });
+
+  // Setup OpenAPI/Swagger documentation
+  const config = new SpecBuilder()
+    .setTitle("Jabberjaw API")
+    .setDescription("Location-aware travel content generation API")
+    .setVersion("1.0")
+    .addTag("journey", "Journey and story management")
+    .addTag("poi", "Point of Interest discovery")
+    .addTag("content", "Content generation and storage")
+    .build();
+
+  const document = await SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup("api/docs", app, document);
 
   // Get configuration service to read port
   const configService = app.get(ConfigurationService);

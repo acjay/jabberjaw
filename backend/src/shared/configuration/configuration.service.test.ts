@@ -36,6 +36,18 @@ describe("ConfigurationService", () => {
       const model = await configService.getOpenAIModel();
       assertEquals(model, "gpt-4o-mini");
     });
+
+    it("should return Google Roads API key when configured", async () => {
+      configService.setForTesting("GOOGLE_ROADS_API_KEY", "test-roads-key");
+      const key = await configService.getGoogleRoadsApiKey();
+      assertEquals(key, "test-roads-key");
+    });
+
+    it("should return Google Places API key when configured", async () => {
+      configService.setForTesting("GOOGLE_PLACES_API_KEY", "test-places-key");
+      const key = await configService.getGooglePlacesApiKey();
+      assertEquals(key, "test-places-key");
+    });
   });
 
   describe("testing functionality", () => {

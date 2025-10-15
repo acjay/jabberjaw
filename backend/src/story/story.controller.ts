@@ -1,5 +1,5 @@
 import {
-  Body,
+  Body as NonZodBody,
   Controller,
   Delete,
   Get,
@@ -8,27 +8,26 @@ import {
   Param,
   Post,
 } from "@danet/core";
+import { Body, ReturnedSchema } from "@danet/zod";
 import { StoryService } from "./services/story.service.ts";
-import { ContentRequestDto, GeneratedContentDto } from "./dto/index.ts";
 import { StoredContent } from "./services/content-storage.service.ts";
+import {
+  ContentRequestSchema,
+  GeneratedContentSchema,
+  type ContentRequest,
+  type GeneratedContent,
+} from "../shared/schemas/index.ts";
 
 @Controller("api/content")
 export class StoryController {
   constructor(private readonly storyService: StoryService) {}
 
   @Post("generate")
+  @ReturnedSchema(GeneratedContentSchema)
   async generateContent(
-    @Body() body: Record<string, unknown>
-  ): Promise<GeneratedContentDto> {
-    try {
-      const request = new ContentRequestDto(body);
-      return await this.storyService.generateContent(request);
-    } catch (error) {
-      throw new HttpException(
-        HTTP_STATUS.BAD_REQUEST,
-        `Invalid content request: ${error}`
-      );
-    }
+    @Body(ContentRequestSchema) body: ContentRequest
+  ): Promise<GeneratedContent> {
+    return await this.storyService.generateContent(body);
   }
 
   @Get(":id")
@@ -95,7 +94,7 @@ export class StoryController {
 
   @Get("similar")
   findSimilarContent(
-    @Body() inputData: Record<string, unknown>
+    @NonZodBody() inputData: Record<string, unknown>
   ): StoredContent[] {
     return this.storyService.findSimilarContent(inputData, 5);
   }

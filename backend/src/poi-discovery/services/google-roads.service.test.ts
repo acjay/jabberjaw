@@ -21,7 +21,7 @@ describe("GoogleRoadsService", () => {
     // Create mock client - no pre-configured stubs
     mockGoogleMapsClient = {} as GoogleMapsClient;
     configService = new ConfigurationService();
-    configService.setForTesting("GOOGLE_MAPS_API_KEY", "test-api-key");
+    configService.setForTesting("GOOGLE_ROADS_API_KEY", "test-api-key");
     service = new GoogleRoadsService(mockGoogleMapsClient, configService);
   });
 

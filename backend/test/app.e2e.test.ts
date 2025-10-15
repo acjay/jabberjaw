@@ -20,14 +20,6 @@ describe("AppController (e2e)", () => {
     await app.close();
   });
 
-  it("/ (GET)", async () => {
-    const response = await fetch(`${baseUrl}/`);
-    const text = await response.text();
-
-    assertEquals(response.status, 200);
-    assertEquals(text, "Jabberjaw Backend API is running with Deno and Danet!");
-  });
-
   it("/health (GET)", async () => {
     const response = await fetch(`${baseUrl}/health`);
     const json = await response.json();

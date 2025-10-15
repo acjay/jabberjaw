@@ -6,8 +6,8 @@ import { JourneyService } from "./journey.service.ts";
 import { POIIdentificationService } from "../poi-discovery/services/poi-identification.service.ts";
 import { StoryService } from "../story/services/story.service.ts";
 import { POICategory } from "../models/poi.model.ts";
-import { ContentStyle } from "../story/dto/content-request.dto.ts";
 import { stub } from "@std/testing/mock";
+import type { JourneyLocationRequest } from "../shared/schemas/index.ts";
 
 describe("Journey Integration", () => {
   let controller: JourneyController;
@@ -34,13 +34,11 @@ describe("Journey Integration", () => {
             location: {
               latitude: 40.7128,
               longitude: -74.006,
-              address: "Downtown Manhattan, NY",
             },
             description: "Historic downtown area with rich cultural heritage",
             metadata: {
               significanceScore: 85,
-              source: "overpass",
-              lastUpdated: new Date(),
+              significance: ["historical", "cultural"],
             },
           },
           {
@@ -50,13 +48,11 @@ describe("Journey Integration", () => {
             location: {
               latitude: 40.7129,
               longitude: -74.0061,
-              address: "Riverside Park, NY",
             },
             description: "Beautiful waterfront park with walking trails",
             metadata: {
               significanceScore: 75,
-              source: "overpass",
-              lastUpdated: new Date(),
+              significance: ["recreational", "natural"],
             },
           },
         ])
@@ -68,43 +64,50 @@ describe("Journey Integration", () => {
           id: "story-123",
           content:
             "Welcome to this historic downtown area, where centuries of history come alive. The nearby Riverside Park offers a peaceful retreat with stunning waterfront views...",
-          estimatedDuration: 180,
-          contentStyle: ContentStyle.MIXED,
-          generatedAt: new Date().toISOString(),
+          duration: 180,
+          status: "ready" as const,
         })
       );
 
-      const locationData = {
+      const locationData: JourneyLocationRequest = {
         latitude: 40.7128,
         longitude: -74.006,
       };
 
       const result = await controller.processLocation(locationData);
 
-      // Verify response structure
-      assertExists(result.storyId);
-      assertExists(result.audioUrl);
-      assertExists(result.status);
-      assertExists(result.estimatedDuration);
+      // Verify response structure - now returns story seeds, not direct story
+      assertExists(result.seeds);
+      assertExists(result.location);
+      assertExists(result.timestamp);
 
-      assertEquals(result.status, "ready");
-      assertEquals(typeof result.estimatedDuration, "number");
-      assertEquals(result.estimatedDuration > 0, true);
-      assertEquals(typeof result.storyId, "string");
-      assertEquals(typeof result.audioUrl, "string");
+      assertEquals(Array.isArray(result.seeds), true);
+      assertEquals(result.seeds.length > 0, true);
+      assertEquals(typeof result.seeds[0].id, "string");
+      assertEquals(typeof result.seeds[0].title, "string");
+      assertEquals(typeof result.seeds[0].targetDuration, "number");
     });
 
-    it("should throw HttpException for invalid location data", async () => {
-      const invalidData = {
-        latitude: "invalid",
+    it("should handle service errors gracefully", async () => {
+      // Stub POI service to throw an error
+      stub(mockPOIService, "discoverPOIs", () => {
+        throw new Error("Service unavailable");
+      });
+
+      const locationData: JourneyLocationRequest = {
+        latitude: 40.7128,
         longitude: -74.006,
       };
 
-      await assertRejects(
-        () => controller.processLocation(invalidData as any),
-        HttpException,
-        "Invalid location data"
-      );
+      // Should not throw, but return fallback content
+      const result = await controller.processLocation(locationData);
+
+      // Verify fallback response structure
+      assertExists(result.seeds);
+      assertExists(result.location);
+      assertExists(result.timestamp);
+      assertEquals(Array.isArray(result.seeds), true);
+      assertEquals(result.seeds.length > 0, true);
     });
   });
 
@@ -120,13 +123,11 @@ describe("Journey Integration", () => {
             location: {
               latitude: 40.7128,
               longitude: -74.006,
-              address: "Downtown Manhattan, NY",
             },
             description: "Historic downtown area with rich cultural heritage",
             metadata: {
               significanceScore: 85,
-              source: "overpass",
-              lastUpdated: new Date(),
+              significance: ["historical", "cultural"],
             },
           },
         ])
@@ -137,19 +138,18 @@ describe("Journey Integration", () => {
           id: "story-123",
           content:
             "Welcome to this historic downtown area, where centuries of history come alive. The nearby Riverside Park offers a peaceful retreat with stunning waterfront views...",
-          estimatedDuration: 180,
-          contentStyle: ContentStyle.MIXED,
-          generatedAt: new Date().toISOString(),
+          duration: 180,
+          status: "ready" as const,
         })
       );
 
-      const locationData = {
+      const locationData: JourneyLocationRequest = {
         latitude: 40.7128,
         longitude: -74.006,
       };
 
       const createResult = await controller.processLocation(locationData);
-      const storyId = createResult.storyId;
+      const storyId = createResult.seeds[0].id; // Get ID from first seed
 
       // Now retrieve the story
       const story = controller.getStory(storyId);
@@ -191,7 +191,9 @@ describe("Journey Integration", () => {
         throw new Error("Expected HttpException to be thrown");
       } catch (error) {
         assertEquals(error instanceof HttpException, true);
-        assertEquals(error.message.includes("Story not found"), true);
+        if (error instanceof HttpException) {
+          assertEquals(error.message.includes("Story not found"), true);
+        }
       }
     });
   });

@@ -1,24 +1,23 @@
 import { Injectable } from "@danet/core";
-import {
-  LocationRequestDto,
-  LocationResponseDto,
-  StoryResponseDto,
-} from "./dto/index.ts";
 import { POIIdentificationService } from "../poi-discovery/services/poi-identification.service.ts";
 import { StoryService } from "../story/services/story.service.ts";
 import { LocationData } from "../models/location.model.ts";
+import { PointOfInterest } from "../models/poi.model.ts";
 import {
-  ContentRequestDto,
+  JourneyLocationRequest,
+  JourneyLocationResponse,
+  StoryResponse,
+  ContentRequest,
   ContentStyle,
-} from "../story/dto/content-request.dto.ts";
-import { StructuredPOIDto, POIType } from "../story/dto/structured-poi.dto.ts";
-import { TextPOIDescriptionDto } from "../story/dto/text-poi-description.dto.ts";
+  StructuredPOI,
+  TextPOIDescription,
+} from "../shared/schemas/index.ts";
 
 interface CachedJourney {
   storyId: string;
   content: string;
   location: LocationData;
-  pois: any[];
+  pois: PointOfInterest[];
   generatedAt: Date;
   estimatedDuration: number;
   cacheKey: string;
@@ -26,7 +25,7 @@ interface CachedJourney {
 
 @Injectable()
 export class JourneyService {
-  private stories = new Map<string, StoryResponseDto>();
+  private stories = new Map<string, StoryResponse>();
   private journeyCache = new Map<string, CachedJourney>();
   private readonly cacheExpiryMs = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -36,8 +35,8 @@ export class JourneyService {
   ) {}
 
   async processLocation(
-    locationData: LocationRequestDto
-  ): Promise<LocationResponseDto> {
+    locationData: JourneyLocationRequest
+  ): Promise<JourneyLocationResponse> {
     const storyId = crypto.randomUUID();
 
     try {
@@ -61,7 +60,7 @@ export class JourneyService {
         console.log("Found cached journey, returning cached content");
 
         // Create new story with cached data but new ID
-        const story = new StoryResponseDto({
+        const story: StoryResponse = {
           storyId: storyId,
           content: cachedJourney.content,
           audioUrl: `/api/audio/${storyId}`,
@@ -72,16 +71,31 @@ export class JourneyService {
             longitude: location.longitude,
           },
           generatedAt: new Date(), // Use current time for new request
-        });
+        };
 
         this.stories.set(storyId, story);
 
-        return new LocationResponseDto({
-          storyId,
-          audioUrl: story.audioUrl,
-          status: "ready",
-          estimatedDuration: story.duration,
-        });
+        return {
+          seeds: [
+            {
+              id: storyId,
+              title: "Cached Story",
+              summary: "Previously generated content for this location",
+              location: {
+                latitude: location.latitude,
+                longitude: location.longitude,
+              },
+              contentStyle: "mixed",
+              targetDuration: cachedJourney.estimatedDuration,
+              createdAt: new Date(),
+            },
+          ],
+          location: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+          },
+          timestamp: new Date(),
+        };
       }
 
       // Step 1: Discover POIs near the location
@@ -100,60 +114,57 @@ export class JourneyService {
       if (pois.length > 0) {
         // Create structured POI data for content generation
         const primaryPOIs = pois.slice(0, 5); // Use top 5 POIs
-        const structuredPOI = new StructuredPOIDto({
+        const structuredPOI: StructuredPOI = {
           name: this.generateLocationName(primaryPOIs, location),
-          type: this.determinePrimaryType(primaryPOIs) as POIType,
+          type: this.determinePrimaryType(primaryPOIs),
           location: {
-            country: "United States", // Default for now
-            coordinates: {
-              latitude: location.latitude,
-              longitude: location.longitude,
-            },
+            latitude: location.latitude,
+            longitude: location.longitude,
           },
-          context: this.generateLocationContext(primaryPOIs, location),
-        });
+          description: this.generateLocationContext(primaryPOIs, location),
+        };
 
-        const contentRequest = new ContentRequestDto({
+        const contentRequest: ContentRequest = {
           input: structuredPOI,
           targetDuration: 180, // 3 minutes
-          contentStyle: ContentStyle.MIXED,
-        });
+          contentStyle: "mixed",
+        };
 
         console.log("Generating content with LLM...");
         const generatedContent = await this.contentService.generateContent(
           contentRequest
         );
         content = generatedContent.content;
-        estimatedDuration = generatedContent.estimatedDuration;
+        estimatedDuration = generatedContent.duration;
 
         console.log("Content generated successfully");
       } else {
         // Fallback: Generate content based on location coordinates only
         console.log("No POIs found, generating location-based content...");
 
-        const textDescription = new TextPOIDescriptionDto({
+        const textDescription: TextPOIDescription = {
           description: `Location at coordinates ${location.latitude.toFixed(
             4
           )}, ${location.longitude.toFixed(
             4
           )}. This area represents a unique point on the map with its own geographic and cultural characteristics.`,
-        });
+        };
 
-        const contentRequest = new ContentRequestDto({
+        const contentRequest: ContentRequest = {
           input: textDescription,
           targetDuration: 120, // 2 minutes for basic content
-          contentStyle: ContentStyle.GEOGRAPHICAL,
-        });
+          contentStyle: "geographical",
+        };
 
         const generatedContent = await this.contentService.generateContent(
           contentRequest
         );
         content = generatedContent.content;
-        estimatedDuration = generatedContent.estimatedDuration;
+        estimatedDuration = generatedContent.duration;
       }
 
       // Create and store the story
-      const story = new StoryResponseDto({
+      const story: StoryResponse = {
         storyId: storyId,
         content,
         audioUrl: `/api/audio/${storyId}`,
@@ -164,7 +175,7 @@ export class JourneyService {
           longitude: location.longitude,
         },
         generatedAt: new Date(),
-      });
+      };
 
       this.stories.set(storyId, story);
 
@@ -183,12 +194,27 @@ export class JourneyService {
         `Journey processing completed successfully for story ${storyId}`
       );
 
-      return new LocationResponseDto({
-        storyId,
-        audioUrl: story.audioUrl,
-        status: "ready",
-        estimatedDuration: story.duration,
-      });
+      return {
+        seeds: [
+          {
+            id: storyId,
+            title: this.generateLocationName(pois, location),
+            summary: content.substring(0, 200) + "...",
+            location: {
+              latitude: location.latitude,
+              longitude: location.longitude,
+            },
+            contentStyle: "mixed",
+            targetDuration: estimatedDuration,
+            createdAt: new Date(),
+          },
+        ],
+        location: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        },
+        timestamp: new Date(),
+      };
     } catch (error) {
       console.error("Error processing location:", error);
 
@@ -199,7 +225,7 @@ export class JourneyService {
       );
       const estimatedDuration = 120; // 2 minutes for fallback
 
-      const story = new StoryResponseDto({
+      const story: StoryResponse = {
         storyId: storyId,
         content: fallbackContent,
         audioUrl: `/api/audio/${storyId}`,
@@ -210,20 +236,35 @@ export class JourneyService {
           longitude: locationData.longitude,
         },
         generatedAt: new Date(),
-      });
+      };
 
       this.stories.set(storyId, story);
 
-      return new LocationResponseDto({
-        storyId,
-        audioUrl: story.audioUrl,
-        status: "ready",
-        estimatedDuration: story.duration,
-      });
+      return {
+        seeds: [
+          {
+            id: storyId,
+            title: "Fallback Content",
+            summary: fallbackContent.substring(0, 200) + "...",
+            location: {
+              latitude: locationData.latitude,
+              longitude: locationData.longitude,
+            },
+            contentStyle: "mixed",
+            targetDuration: estimatedDuration,
+            createdAt: new Date(),
+          },
+        ],
+        location: {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+        },
+        timestamp: new Date(),
+      };
     }
   }
 
-  getStory(storyId: string): StoryResponseDto | null {
+  getStory(storyId: string): StoryResponse | null {
     const story = this.stories.get(storyId);
     return story || null;
   }
@@ -282,7 +323,10 @@ export class JourneyService {
     console.log(`Cleaned up ${keysToDelete.length} expired cache entries`);
   }
 
-  private generateLocationName(pois: any[], location: LocationData): string {
+  private generateLocationName(
+    pois: PointOfInterest[],
+    location: LocationData
+  ): string {
     if (pois.length === 0) {
       return `Location ${location.latitude.toFixed(
         3
@@ -306,8 +350,8 @@ export class JourneyService {
     );
   }
 
-  private determinePrimaryType(pois: any[]): POIType {
-    if (pois.length === 0) return POIType.LANDMARK;
+  private determinePrimaryType(pois: PointOfInterest[]): string {
+    if (pois.length === 0) return "landmark";
 
     // Count categories to determine primary type
     const categoryCounts = new Map<string, number>();
@@ -316,7 +360,7 @@ export class JourneyService {
       categoryCounts.set(poi.category, count + 1);
     });
 
-    // Return the most common category, mapped to POIType
+    // Return the most common category
     let maxCount = 0;
     let primaryCategory = "landmark";
     for (const [category, count] of categoryCounts.entries()) {
@@ -326,34 +370,10 @@ export class JourneyService {
       }
     }
 
-    // Map category strings to POIType enum values
-    const categoryMap: Record<string, POIType> = {
-      town: POIType.TOWN,
-      city: POIType.CITY,
-      landmark: POIType.LANDMARK,
-      park: POIType.PARK,
-      museum: POIType.MUSEUM,
-      arboretum: POIType.ARBORETUM,
-      historical_site: POIType.HISTORICAL_SITE,
-      natural_feature: POIType.NATURAL_FEATURE,
-      institution: POIType.INSTITUTION,
-      waterway: POIType.WATERWAY,
-      bridge: POIType.BRIDGE,
-      mountain: POIType.MOUNTAIN,
-      valley: POIType.VALLEY,
-      airport: POIType.AIRPORT,
-      train_station: POIType.TRAIN_STATION,
-      cultural_center: POIType.CULTURAL_CENTER,
-      theater: POIType.THEATER,
-      religious_site: POIType.RELIGIOUS_SITE,
-      military_site: POIType.MILITARY_SITE,
-      agricultural_site: POIType.AGRICULTURAL_SITE,
-    };
-
-    return categoryMap[primaryCategory] || POIType.LANDMARK;
+    return primaryCategory;
   }
 
-  private calculateOverallSignificance(pois: any[]): number {
+  private calculateOverallSignificance(pois: PointOfInterest[]): number {
     if (pois.length === 0) return 0.3;
 
     const scores = pois
@@ -375,7 +395,10 @@ export class JourneyService {
     return Math.min(1.0, weightedSum / totalWeight);
   }
 
-  private generateLocationContext(pois: any[], location: LocationData): string {
+  private generateLocationContext(
+    pois: PointOfInterest[],
+    location: LocationData
+  ): string {
     if (pois.length === 0) {
       return `Geographic coordinates ${location.latitude.toFixed(
         4
@@ -434,14 +457,17 @@ export class JourneyService {
     return R * c; // Distance in kilometers
   }
 
-  private async generateFallbackContent(
-    locationData: LocationRequestDto,
-    error: any
-  ): Promise<string> {
-    console.log("Generating fallback content due to error:", error.message);
+  private generateFallbackContent(
+    locationData: JourneyLocationRequest,
+    error: unknown
+  ): string {
+    console.log("Generating fallback content due to error:", error);
 
     // Try to determine what service failed and provide appropriate fallback
-    const errorMessage = error.message?.toLowerCase() || "";
+    const errorMessage =
+      error instanceof Error
+        ? error.message?.toLowerCase() || ""
+        : String(error).toLowerCase();
 
     if (errorMessage.includes("poi") || errorMessage.includes("discovery")) {
       return `Welcome to the area around ${locationData.latitude.toFixed(

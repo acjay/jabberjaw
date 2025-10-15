@@ -5,6 +5,7 @@ import { POIIdentificationService } from "./poi-identification.service.ts";
 import { OverpassClient } from "../../shared/clients/overpass-client.ts";
 import { GoogleMapsClient } from "../../shared/clients/google-maps-client.ts";
 import { NominatimClient } from "../../shared/clients/nominatim-client.ts";
+import { ConfigurationService } from "../../shared/configuration/index.ts";
 import { LocationData } from "../../models/location.model.ts";
 import { POICategory } from "../../models/poi.model.ts";
 
@@ -114,10 +115,18 @@ describe("Enhanced Highway Detection (Method 4)", () => {
       })
     );
 
+    const mockConfigService = {
+      get: () => undefined,
+      getGoogleMapsApiKey: () => Promise.resolve(undefined),
+      getGoogleRoadsApiKey: () => Promise.resolve(undefined),
+      getGooglePlacesApiKey: () => Promise.resolve(undefined),
+    } as unknown as ConfigurationService;
+
     service = new POIIdentificationService(
       mockOverpassClient,
       mockGoogleMapsClient,
-      mockNominatimClient
+      mockNominatimClient,
+      mockConfigService
     );
   });
 

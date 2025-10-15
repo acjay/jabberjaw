@@ -1,5 +1,4 @@
 import { Injectable } from "@danet/core";
-import { ContentRequestDto, GeneratedContentDto } from "../dto/index.ts";
 import { MockLLMService, LLMService } from "./llm.service.ts";
 import { OpenAILLMService } from "./openai-llm.service.ts";
 import {
@@ -8,6 +7,11 @@ import {
   StoredContent,
 } from "./content-storage.service.ts";
 import { ConfigurationService } from "../../shared/configuration/index.ts";
+import {
+  ContentRequest,
+  GeneratedContent,
+} from "../../shared/schemas/index.ts";
+import { convertContentRequestToDto } from "../../shared/utils/schema-bridge.ts";
 
 @Injectable()
 export class StoryService {
@@ -27,46 +31,55 @@ export class StoryService {
     }
   }
 
-  async generateContent(
-    request: ContentRequestDto
-  ): Promise<GeneratedContentDto> {
+  async generateContent(request: ContentRequest): Promise<GeneratedContent> {
+    // Convert Zod schema to legacy DTO for compatibility with existing services
+    const legacyRequest = convertContentRequestToDto(request);
+
     // Check for similar existing content first
-    const inputData = request.input;
+    const inputData = legacyRequest.input;
     const similarContent = this.storageService.findSimilar(inputData, 1);
 
     if (similarContent.length > 0) {
       console.log("Found similar content, returning cached version");
       const cached = similarContent[0];
-      return new GeneratedContentDto({
+      return {
         id: cached.id,
         content: cached.content,
-        estimatedDuration: cached.estimatedDuration,
+        duration: cached.estimatedDuration,
+        status: "ready",
         generatedAt: cached.generatedAt,
-        sources: [...(cached.sources || []), "Cached Content"],
-        contentStyle: cached.contentStyle,
-      });
+      };
     }
 
-    // Generate new content
+    // Generate new content using legacy DTO
     const llmService = await this.getLLMService();
-    const llmResponse = await llmService.generateContent(request);
+    const llmResponse = await llmService.generateContent(legacyRequest);
     const prompt = llmService.generatePrompt(
-      request.input,
-      request.contentStyle!
+      legacyRequest.input,
+      legacyRequest.contentStyle!
     );
 
-    const generatedContent = new GeneratedContentDto({
+    const generatedContent: GeneratedContent = {
       id: crypto.randomUUID(),
       content: llmResponse.content,
-      estimatedDuration: llmResponse.estimatedDuration,
-      prompt,
+      duration: llmResponse.estimatedDuration,
+      status: "ready",
       generatedAt: new Date(),
-      sources: llmResponse.sources,
-      contentStyle: request.contentStyle,
-    });
+    };
 
     // Store the generated content
-    this.storageService.store(generatedContent, prompt, inputData);
+    this.storageService.store(
+      {
+        id: generatedContent.id,
+        content: generatedContent.content,
+        estimatedDuration: generatedContent.duration,
+        generatedAt: generatedContent.generatedAt!,
+        sources: llmResponse.sources,
+        contentStyle: legacyRequest.contentStyle,
+      },
+      prompt,
+      inputData
+    );
 
     return generatedContent;
   }

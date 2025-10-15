@@ -129,15 +129,45 @@ describe("POIIdentificationService", () => {
     });
 
     it("should handle empty results gracefully", async () => {
-      // Override the stub to return empty results
-      mockOverpassClient.query.restore?.();
-      stub(mockOverpassClient, "query", () =>
+      // Create a new service instance with fresh mocks to avoid stub conflicts
+      const freshOverpassClient = new OverpassClient();
+      const freshGoogleMapsClient = new GoogleMapsClient();
+      const freshNominatimClient = new NominatimClient();
+      const freshConfigService = new ConfigurationService();
+
+      stub(freshOverpassClient, "query", () =>
         Promise.resolve({
           elements: [],
         })
       );
 
-      const pois = await service.discoverPOIs(mockLocation);
+      stub(freshGoogleMapsClient, "placesNearbySearch", () =>
+        Promise.resolve({
+          results: [],
+        })
+      );
+
+      stub(freshNominatimClient, "reverse", () =>
+        Promise.resolve({
+          address: {
+            city: "Unknown",
+            county: "Unknown County",
+            state: "Unknown State",
+            country: "Unknown Country",
+          },
+        })
+      );
+
+      freshConfigService.setForTesting("GOOGLE_PLACES_API_KEY", "test-api-key");
+
+      const freshService = new POIIdentificationService(
+        freshOverpassClient,
+        freshGoogleMapsClient,
+        freshNominatimClient,
+        freshConfigService
+      );
+
+      const pois = await freshService.discoverPOIs(mockLocation);
 
       assertExists(pois);
       assert(Array.isArray(pois));

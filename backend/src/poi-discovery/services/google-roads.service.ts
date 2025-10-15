@@ -55,7 +55,7 @@ export class GoogleRoadsService {
   private async ensureInitialized(): Promise<void> {
     if (this.apiKey === undefined) {
       try {
-        this.apiKey = await this.configService.getGoogleMapsApiKey();
+        this.apiKey = await this.configService.getGoogleRoadsApiKey();
       } catch (error) {
         console.warn(
           "Google Roads API key not configured. Service will not function properly."

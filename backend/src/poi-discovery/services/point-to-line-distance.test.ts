@@ -1,47 +1,87 @@
-import { assertEquals } from '@std/assert';
-import { beforeEach, describe, it } from '@std/testing/bdd';
-import { POIIdentificationService } from './poi-identification.service.ts';
+import { assertEquals } from "@std/assert";
+import { beforeEach, describe, it } from "@std/testing/bdd";
+import { POIIdentificationService } from "./poi-identification.service.ts";
+import {
+  OverpassClient,
+  GoogleMapsClient,
+  NominatimClient,
+} from "../../shared/index.ts";
+import { ConfigurationService } from "../../shared/configuration/index.ts";
 
-describe('Point-to-Line Distance Calculation', () => {
+describe("Point-to-Line Distance Calculation", () => {
   let service: POIIdentificationService;
 
   beforeEach(() => {
-    service = new POIIdentificationService();
+    // Create mock dependencies with proper method stubs
+    const mockOverpassClient = {
+      query: () => Promise.resolve({ elements: [] }),
+    } as unknown as OverpassClient;
+    const mockGoogleMapsClient = {
+      placesNearbySearch: () => Promise.resolve({ results: [] }),
+    } as unknown as GoogleMapsClient;
+    const mockNominatimClient = {
+      reverse: () => Promise.resolve({ address: {} }),
+    } as unknown as NominatimClient;
+    const mockConfigService = {
+      get: () => undefined,
+      getGoogleMapsApiKey: () => Promise.resolve(undefined),
+      getGoogleRoadsApiKey: () => Promise.resolve(undefined),
+      getGooglePlacesApiKey: () => Promise.resolve(undefined),
+    } as unknown as ConfigurationService;
+
+    service = new POIIdentificationService(
+      mockOverpassClient,
+      mockGoogleMapsClient,
+      mockNominatimClient,
+      mockConfigService
+    );
   });
 
-  describe('pointToLineSegmentDistance', () => {
-    it('should calculate zero distance when point is on the line segment', () => {
+  describe("pointToLineSegmentDistance", () => {
+    it("should calculate zero distance when point is on the line segment", () => {
       // Point exactly on the line segment
       const point: [number, number] = [40.5, -74.3];
       const segmentStart: [number, number] = [40.4, -74.3];
       const segmentEnd: [number, number] = [40.6, -74.3];
 
       // Access private method for testing
-      const distance = (service as any).pointToLineSegmentDistance(point, segmentStart, segmentEnd);
+      const distance = (service as any).pointToLineSegmentDistance(
+        point,
+        segmentStart,
+        segmentEnd
+      );
 
       // Should be very close to zero (within GPS accuracy)
       assertEquals(Math.round(distance), 0);
     });
 
-    it('should calculate correct distance to line segment endpoint', () => {
+    it("should calculate correct distance to line segment endpoint", () => {
       // Point is closest to the start of the segment
       const point: [number, number] = [40.4, -74.3];
       const segmentStart: [number, number] = [40.4, -74.3];
       const segmentEnd: [number, number] = [40.6, -74.3];
 
-      const distance = (service as any).pointToLineSegmentDistance(point, segmentStart, segmentEnd);
+      const distance = (service as any).pointToLineSegmentDistance(
+        point,
+        segmentStart,
+        segmentEnd
+      );
 
       // Should be zero since point is at segment start
       assertEquals(Math.round(distance), 0);
     });
 
-    it('should calculate perpendicular distance to line segment', () => {
+    it("should calculate perpendicular distance to line segment", () => {
       // Point is perpendicular to the middle of the segment
       const point: [number, number] = [40.5, -74.2]; // Offset east
       const segmentStart: [number, number] = [40.4, -74.3];
       const segmentEnd: [number, number] = [40.6, -74.3];
 
-      const distance = (service as any).pointToLineSegmentDistance(point, segmentStart, segmentEnd);
+      const distance = (service as any).pointToLineSegmentDistance(
+        point,
+        segmentStart,
+        segmentEnd
+      );
 
       // Should be approximately the distance from -74.2 to -74.3 longitude
       // At this latitude, 0.1 degrees longitude ≈ 8km
@@ -50,28 +90,34 @@ describe('Point-to-Line Distance Calculation', () => {
     });
   });
 
-  describe('calculateDistanceToLineSegment', () => {
-    it('should handle empty geometry', () => {
+  describe("calculateDistanceToLineSegment", () => {
+    it("should handle empty geometry", () => {
       const point: [number, number] = [40.5, -74.3];
       const geometry: Array<{ lat: number; lon: number }> = [];
 
-      const distance = (service as any).calculateDistanceToLineSegment(point, geometry);
+      const distance = (service as any).calculateDistanceToLineSegment(
+        point,
+        geometry
+      );
 
       assertEquals(distance, Infinity);
     });
 
-    it('should handle single point geometry', () => {
+    it("should handle single point geometry", () => {
       const point: [number, number] = [40.5, -74.3];
       const geometry: Array<{ lat: number; lon: number }> = [
         { lat: 40.5, lon: -74.3 },
       ];
 
-      const distance = (service as any).calculateDistanceToLineSegment(point, geometry);
+      const distance = (service as any).calculateDistanceToLineSegment(
+        point,
+        geometry
+      );
 
       assertEquals(distance, Infinity); // No line segments to calculate distance to
     });
 
-    it('should calculate minimum distance to multi-segment highway', () => {
+    it("should calculate minimum distance to multi-segment highway", () => {
       const point: [number, number] = [40.53, -74.34]; // User location
 
       // Highway geometry with multiple segments
@@ -82,13 +128,16 @@ describe('Point-to-Line Distance Calculation', () => {
         { lat: 40.55, lon: -74.32 }, // Segment 3 end
       ];
 
-      const distance = (service as any).calculateDistanceToLineSegment(point, geometry);
+      const distance = (service as any).calculateDistanceToLineSegment(
+        point,
+        geometry
+      );
 
       // Should be very close to zero since user is on one of the geometry points
       assertEquals(Math.round(distance), 0);
     });
 
-    it('should find closest segment in complex highway geometry', () => {
+    it("should find closest segment in complex highway geometry", () => {
       const point: [number, number] = [40.535, -74.335]; // User location between segments
 
       // Highway geometry where user is closest to the middle segment
@@ -99,7 +148,10 @@ describe('Point-to-Line Distance Calculation', () => {
         { lat: 40.56, lon: -74.31 }, // Far segment
       ];
 
-      const distance = (service as any).calculateDistanceToLineSegment(point, geometry);
+      const distance = (service as any).calculateDistanceToLineSegment(
+        point,
+        geometry
+      );
 
       // Should be small distance since user is close to the middle segment
       const distanceInMeters = Math.round(distance);
@@ -108,8 +160,8 @@ describe('Point-to-Line Distance Calculation', () => {
     });
   });
 
-  describe('calculateGeometryCenter', () => {
-    it('should handle empty geometry', () => {
+  describe("calculateGeometryCenter", () => {
+    it("should handle empty geometry", () => {
       const geometry: Array<{ lat: number; lon: number }> = [];
 
       const center = (service as any).calculateGeometryCenter(geometry);
@@ -117,7 +169,7 @@ describe('Point-to-Line Distance Calculation', () => {
       assertEquals(center, { lat: 0, lng: 0 });
     });
 
-    it('should return single point for single-point geometry', () => {
+    it("should return single point for single-point geometry", () => {
       const geometry: Array<{ lat: number; lon: number }> = [
         { lat: 40.5, lon: -74.3 },
       ];
@@ -127,7 +179,7 @@ describe('Point-to-Line Distance Calculation', () => {
       assertEquals(center, { lat: 40.5, lng: -74.3 });
     });
 
-    it('should calculate center of multi-point geometry', () => {
+    it("should calculate center of multi-point geometry", () => {
       const geometry: Array<{ lat: number; lon: number }> = [
         { lat: 40.0, lon: -74.0 },
         { lat: 41.0, lon: -75.0 },
