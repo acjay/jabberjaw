@@ -83,26 +83,6 @@ export interface StorySeedRequest {
 }
 
 /**
- * Legacy interface for backward compatibility
- * @deprecated Use StorySeedRequest instead
- */
-export interface ContentRequest extends StorySeedRequest {}
-
-/**
- * Story seeds response containing multiple story options for a location
- */
-export interface StorySeedsResponse {
-  /** Array of story metadata for available stories */
-  storySeeds: StoryMetadata[];
-
-  /** Location context for the story seeds */
-  location: LocationData;
-
-  /** Total number of available stories for this location */
-  totalAvailable: number;
-}
-
-/**
  * Individual story response for full story retrieval
  */
 export interface StoryResponse {
@@ -156,19 +136,6 @@ export interface GeneratedStoryContent {
 }
 
 /**
- * Legacy interface for backward compatibility
- * @deprecated Use GeneratedStoryContent instead
- */
-export interface GeneratedContent
-  extends Omit<
-    GeneratedStoryContent,
-    "storyId" | "storyTitle" | "storySummary"
-  > {
-  /** @deprecated Use storyId instead */
-  id: string;
-}
-
-/**
  * Stored story model for persisting generated stories
  * Includes all generation metadata for story storage and retrieval
  */
@@ -214,19 +181,6 @@ export interface StoredStory {
 }
 
 /**
- * Legacy interface for backward compatibility
- * @deprecated Use StoredStory instead
- */
-export interface StoredContent
-  extends Omit<
-    StoredStory,
-    "storyId" | "storyTitle" | "storySummary" | "storySeed"
-  > {
-  /** @deprecated Use storyId instead */
-  id: string;
-}
-
-/**
  * Validation function for StorySeedRequest
  * Ensures all required fields are present and valid
  */
@@ -260,14 +214,6 @@ export function validateStorySeedRequest(request: StorySeedRequest): boolean {
   }
 
   return true;
-}
-
-/**
- * Legacy validation function for backward compatibility
- * @deprecated Use validateStorySeedRequest instead
- */
-export function validateContentRequest(request: ContentRequest): boolean {
-  return validateStorySeedRequest(request);
 }
 
 /**
@@ -349,33 +295,6 @@ export function validateGeneratedStoryContent(
   }
 
   return true;
-}
-
-/**
- * Legacy validation function for backward compatibility
- * @deprecated Use validateGeneratedStoryContent instead
- */
-export function validateGeneratedContent(content: GeneratedContent): boolean {
-  // Skip validation of story-specific fields for legacy content
-  return (
-    !!content.id &&
-    typeof content.id === "string" &&
-    content.id.trim().length > 0 &&
-    !!content.narrative &&
-    typeof content.narrative === "string" &&
-    content.narrative.trim().length > 0 &&
-    !!content.prompt &&
-    typeof content.prompt === "string" &&
-    content.prompt.trim().length > 0 &&
-    typeof content.estimatedDuration === "number" &&
-    content.estimatedDuration > 0 &&
-    Array.isArray(content.sources) &&
-    Array.isArray(content.poiReferences) &&
-    content.generatedAt instanceof Date &&
-    !isNaN(content.generatedAt.getTime()) &&
-    !!content.location &&
-    typeof content.location === "object"
-  );
 }
 
 /**
@@ -475,38 +394,6 @@ export function validateStoredStory(story: StoredStory): boolean {
 }
 
 /**
- * Legacy validation function for backward compatibility
- * @deprecated Use validateStoredStory instead
- */
-export function validateStoredContent(content: StoredContent): boolean {
-  // Legacy validation with reduced requirements
-  return (
-    !!content.id &&
-    typeof content.id === "string" &&
-    content.id.trim().length > 0 &&
-    !!content.narrative &&
-    typeof content.narrative === "string" &&
-    content.narrative.trim().length > 0 &&
-    !!content.prompt &&
-    typeof content.prompt === "string" &&
-    content.prompt.trim().length > 0 &&
-    typeof content.estimatedDuration === "number" &&
-    content.estimatedDuration > 0 &&
-    Array.isArray(content.pois) &&
-    content.pois.length > 0 &&
-    Array.isArray(content.sources) &&
-    Array.isArray(content.poiReferences) &&
-    content.generatedAt instanceof Date &&
-    !isNaN(content.generatedAt.getTime()) &&
-    !!content.location &&
-    typeof content.location === "object" &&
-    (content.audioUrl === undefined ||
-      (typeof content.audioUrl === "string" &&
-        content.audioUrl.trim().length > 0))
-  );
-}
-
-/**
  * Type guard to check if an object is a valid StorySeedRequest
  */
 export function isStorySeedRequest(obj: unknown): obj is StorySeedRequest {
@@ -538,38 +425,6 @@ export function isStoredStory(obj: unknown): obj is StoredStory {
     typeof obj === "object" &&
     obj !== null &&
     validateStoredStory(obj as StoredStory)
-  );
-}
-
-/**
- * Legacy type guard for backward compatibility
- * @deprecated Use isStorySeedRequest instead
- */
-export function isContentRequest(obj: unknown): obj is ContentRequest {
-  return isStorySeedRequest(obj);
-}
-
-/**
- * Legacy type guard for backward compatibility
- * @deprecated Use isGeneratedStoryContent instead
- */
-export function isGeneratedContent(obj: unknown): obj is GeneratedContent {
-  return (
-    typeof obj === "object" &&
-    obj !== null &&
-    validateGeneratedContent(obj as GeneratedContent)
-  );
-}
-
-/**
- * Legacy type guard for backward compatibility
- * @deprecated Use isStoredStory instead
- */
-export function isStoredContent(obj: unknown): obj is StoredContent {
-  return (
-    typeof obj === "object" &&
-    obj !== null &&
-    validateStoredContent(obj as StoredContent)
   );
 }
 
@@ -637,47 +492,5 @@ export function createStoryMetadata(
     fullStory,
     createdAt: now,
     updatedAt: now,
-  };
-}
-
-/**
- * Legacy helper function for backward compatibility
- * @deprecated Use generatedStoryContentToStoredStory instead
- */
-export function generatedContentToStoredContent(
-  generated: GeneratedContent,
-  pois: PointOfInterest[],
-  audioUrl?: string
-): StoredContent {
-  return {
-    id: generated.id,
-    narrative: generated.narrative,
-    prompt: generated.prompt,
-    pois,
-    location: generated.location,
-    estimatedDuration: generated.estimatedDuration,
-    sources: generated.sources,
-    poiReferences: generated.poiReferences,
-    generatedAt: generated.generatedAt,
-    audioUrl,
-  };
-}
-
-/**
- * Legacy helper function for backward compatibility
- * @deprecated Use createStorySeedRequest instead
- */
-export function createContentRequest(
-  pois: PointOfInterest[],
-  userLocation: LocationData,
-  previousStories: string[] = [],
-  targetDuration: number = 180
-): ContentRequest {
-  return {
-    pois,
-    userLocation,
-    previousStories,
-    targetDuration,
-    contentStyle: ContentStyle.MIXED,
   };
 }

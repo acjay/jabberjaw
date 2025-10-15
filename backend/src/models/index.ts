@@ -21,10 +21,3 @@ export {
   isPointOfInterest,
   getPOICategoriesByGroup,
 } from "./poi.model.ts";
-
-// Content generation models (to be added in task 2.2)
-export type {
-  ContentRequest,
-  GeneratedContent,
-  StoredContent,
-} from "./content.model.ts";

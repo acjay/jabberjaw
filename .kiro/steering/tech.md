@@ -73,6 +73,7 @@ deno task fmt:check    # Check formatting
 - Ensure code compiles before completing each task (e.g. `deno check` for Deno code)
 - Ensure tests still pass before completing each task (e.g. `deno task test` for Deno code)
 - If APIs have been modified, validate the response with a `curl` command. The user should be running the server in `dev` mode. The command `curl -X GET http://localhost:3000/api/health -s` is trusted so that the agent can automatically verify that the server is running. Therefore, the agent should not suggest starting the server as a tool command. It should ask the user to start the server in a separate terminal if the health check fails to verify that the server is running.
+- Do not leave behind deprecated code.
 
 ## Other notes
 
