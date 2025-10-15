@@ -6,7 +6,7 @@
   - Export TypeScript types using `z.infer<>` for each schema
   - _Requirements: 1.1, 2.3, 6.1_
 
-- [ ] 2. Restructure content schema to focus on API schemas
+- [x] 2. Restructure content schema to use API schemas
 
   - Modify `backend/src/shared/schemas/content.schema.ts` to import core schemas from story.schema.ts
   - Keep ContentStyleSchema, FullStoryRequestSchema, StorySeedsResponseSchema, and StoryMetadataSchema as API boundary schemas
